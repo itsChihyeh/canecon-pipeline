@@ -1,1 +1,2 @@
 {"finished_at": "2026-11-07T14:33:01Z", "n_ok": 3, "n_requests": 3, "run_id": "2026-11-07T14:32:59Z_e53494c7", "started_at": "2026-11-07T14:32:59Z", "status": "success"}
+{"finished_at": "2026-11-07T14:46:12Z", "kind": "backfill_gdp_realtime", "n_ok": 8, "n_requests": 8, "run_id": "2026-11-07T14:46:07Z_2861d19f", "started_at": "2026-11-07T14:46:07Z", "status": "success"}
