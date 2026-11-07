@@ -12,8 +12,10 @@ from pathlib import Path
 
 import duckdb
 
+from canecon.collect import run_days
 from canecon.parse import (
     parse_boc_observations,
+    parse_changed_cubes,
     parse_gdp_realtime,
     parse_statcan_vectors,
     release_dates,
@@ -43,12 +45,13 @@ def read_jsonl(path: Path) -> list[dict]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
 
 
-def observations_from_store(root: Path) -> tuple[list[dict], list[dict], list[dict]]:
+def observations_from_store(root: Path) -> tuple[list[dict], list[dict], list[dict], list[dict]]:
     runs = read_jsonl(root / "runs.jsonl")
     manifest = read_jsonl(root / "manifest.jsonl")
     good_runs = {r["run_id"] for r in runs if r["status"] == "success"}
 
     rows: list[dict] = []
+    changed: list[dict] = []
     releases_by_run: dict[str, dict] = {}
     for m in manifest:
         if not m["ok"] or m["run_id"] not in good_runs:
@@ -57,13 +60,18 @@ def observations_from_store(root: Path) -> tuple[list[dict], list[dict], list[di
         rid = m["request_id"]
         if rid == "statcan_vectors_latest":
             parsed = parse_statcan_vectors(content)
-        elif rid == "boc_observations_recent":
+        elif rid in ("boc_observations_recent", "boc_observations_since"):
             parsed = parse_boc_observations(content, m["captured_at"])
         elif rid == "statcan_gdp_realtime_metadata":
             releases_by_run[m["run_id"]] = release_dates(content)
             continue
         elif rid.startswith("statcan_gdp_realtime_releases_"):
             parsed = parse_gdp_realtime(content, releases_by_run[m["run_id"]])
+        elif rid.startswith("statcan_changed_cubes_"):
+            day = rid.removeprefix("statcan_changed_cubes_")
+            for c in parse_changed_cubes(content):
+                changed.append({"run_id": m["run_id"], "day": day, **c, "content_sha256": m["content_sha256"]})
+            continue
         else:
             continue  # e.g. series info: metadata only
         for r in parsed:
@@ -74,11 +82,11 @@ def observations_from_store(root: Path) -> tuple[list[dict], list[dict], list[di
                 object_path=m["object_path"],
             )
         rows.extend(parsed)
-    return rows, manifest, runs
+    return rows, manifest, runs, changed
 
 
 def load(root: Path, db_path: Path) -> int:
-    rows, manifest, runs = observations_from_store(root)
+    rows, manifest, runs, changed = observations_from_store(root)
     db_path.parent.mkdir(parents=True, exist_ok=True)
     con = duckdb.connect(str(db_path))
     try:
@@ -133,6 +141,25 @@ def load(root: Path, db_path: Path) -> int:
                      r["n_requests"], r["n_ok"], r["status"]]
                     for r in runs
                 ],
+            )
+        # Collection days each run covers (daily: its own day; catch-up: the missed days).
+        con.execute("create or replace table raw.run_days (run_id varchar, collection_day date)")
+        day_rows = [[r["run_id"], d] for r in runs for d in run_days(r)]
+        if day_rows:
+            con.executemany("insert into raw.run_days values (?, ?)", day_rows)
+        # StatCan tables that changed on a given day, as answered during catch-up runs.
+        con.execute(
+            """
+            create or replace table raw.changed_tables (
+                run_id varchar, day date, product_id bigint, release_time timestamp, content_sha256 varchar
+            )
+            """
+        )
+        if changed:
+            con.executemany(
+                "insert into raw.changed_tables values (?, ?, ?, ?, ?)",
+                [[c["run_id"], c["day"], c["product_id"], c["release_time"].rstrip("Z"), c["content_sha256"]]
+                 for c in changed],
             )
     finally:
         con.close()

@@ -6,6 +6,7 @@ Codes were checked against the official APIs on 2026-11-07; see docs/sources.md.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date, timedelta
 from typing import Any
 
 STATCAN_WDS = "https://www150.statcan.gc.ca/t1/wds/rest"
@@ -73,6 +74,46 @@ def daily_requests() -> list[Request]:
             params={"recent": BOC_RECENT},
         ),
     ]
+
+
+# --- Catch-up for missed collection days -------------------------------------
+# The APIs serve current data, so a missed day cannot be re-captured as it looked
+# that day. A catch-up run captures everything again now, asks the Bank of Canada for
+# observations since shortly before the earliest missed day (in case it is older than
+# BOC_RECENT business days), and asks StatCan which tables changed on each missed day,
+# so the data quality page can say whether a gap could have hidden a release.
+#
+# Two limits found by running it against the live APIs on 2026-11-07:
+# - Valet returns an empty list when start_date is a weekend or today, so the range
+#   starts BOC_CATCHUP_LOOKBACK_DAYS earlier and always contains business days.
+# - getChangedCubeList for the current day (Eastern) answers HTTP 409 "The product is
+#   not released yet", so StatCan is only asked about days before today.
+BOC_CATCHUP_LOOKBACK_DAYS = 14
+
+
+def changed_cubes_request(day: date) -> Request:
+    return Request(
+        request_id=f"statcan_changed_cubes_{day.isoformat()}",
+        source="statcan_wds_changes",
+        method="GET",
+        url=f"{STATCAN_WDS}/getChangedCubeList/{day.isoformat()}",
+    )
+
+
+def catchup_requests(days: list[date], today_eastern: date) -> list[Request]:
+    days = sorted(set(days))
+    reqs = daily_requests()
+    reqs.append(
+        Request(
+            request_id="boc_observations_since",
+            source="boc_valet",
+            method="GET",
+            url=f"{BOC_VALET}/observations/{','.join(BOC_SERIES)}/json",
+            params={"start_date": (days[0] - timedelta(days=BOC_CATCHUP_LOOKBACK_DAYS)).isoformat()},
+        )
+    )
+    reqs.extend(changed_cubes_request(d) for d in days if d < today_eastern)
+    return reqs
 
 
 # --- One-time backfill of official GDP vintages -------------------------------

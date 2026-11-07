@@ -7,13 +7,18 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "daily = normal collection; backfill_gdp = one-time fetch of official GDP vintages (36-10-0491)"
+        description: "daily = normal collection; catchup = fill missed days; backfill_gdp = one-time fetch of official GDP vintages (36-10-0491)"
         type: choice
-        options: [daily, backfill_gdp]
+        options: [daily, catchup, backfill_gdp]
         default: daily
+      dates:
+        description: "catchup only: UTC days separated by spaces, e.g. 2026-11-05 2026-11-06 (empty = every missed day)"
+        type: string
+        default: ""
 
 permissions:
   contents: write
+  actions: write # only for re-enabling this workflow (keep-alive step)
 
 concurrency:
   group: collect
@@ -40,29 +45,54 @@ jobs:
 
       - name: Collect
         id: collect
+        env:
+          MODE: ${{ inputs.mode || 'daily' }}
+          DATES: ${{ inputs.dates }}
         run: |
-          if [ "${{ inputs.mode }}" = "backfill_gdp" ]; then
-            uv run canecon-backfill --data-dir data-branch/raw
-          else
-            uv run canecon-collect --data-dir data-branch/raw
-          fi
+          case "$MODE" in
+            backfill_gdp) uv run canecon-backfill --data-dir data-branch/raw ;;
+            catchup)
+              args=()
+              for d in $DATES; do
+                [[ "$d" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || { echo "::error::bad date '$d'"; exit 2; }
+                args+=(--date "$d")
+              done
+              uv run canecon-catchup --data-dir data-branch/raw "${args[@]}" ;;
+            *) uv run canecon-collect --data-dir data-branch/raw ;;
+          esac
         continue-on-error: true
 
       - name: Commit snapshots to data branch
         working-directory: data-branch
+        env:
+          MODE: ${{ inputs.mode || 'daily' }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add raw
-          git commit -m "Collect $(date -u +%Y-%m-%dT%H:%MZ) ${{ inputs.mode || 'daily' }} (${{ steps.collect.outcome }})"
+          if git diff --cached --quiet; then
+            echo "nothing new to commit (e.g. catch-up found no missed days)"
+            exit 0
+          fi
+          git commit -m "Collect $(date -u +%Y-%m-%dT%H:%MZ) $MODE (${{ steps.collect.outcome }})"
           git push origin data
 
-      - name: Build warehouse and run dbt data tests on all snapshots
+      - name: Build warehouse, run dbt models, tests and data quality checks
         id: build
         run: uv run canecon-build --data-dir data-branch/raw --db warehouse.duckdb
         continue-on-error: true
 
-      - name: Fail if any request failed
+      # GitHub disables scheduled workflows in public repos after 60 days without
+      # "repository activity". Whether bot commits to the data branch count is not
+      # documented, so re-enable the workflow on every run. Whether this resets the
+      # 60-day timer is also undocumented; see docs/reliability.md.
+      - name: Keep the schedule enabled
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow enable collect.yml --repo "$GITHUB_REPOSITORY" || echo "::warning::could not re-enable the workflow"
+
+      - name: Fail if any request or check failed
         if: steps.collect.outcome != 'success' || steps.build.outcome != 'success'
         run: |
           echo "::error::collect=${{ steps.collect.outcome }} build=${{ steps.build.outcome }}; see data-branch/raw/runs.jsonl and the step logs"

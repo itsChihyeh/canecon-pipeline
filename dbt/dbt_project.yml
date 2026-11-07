@@ -6,8 +6,13 @@ profile: canecon
 model-paths: ["models"]
 test-paths: ["tests"]
 macro-paths: ["macros"]
+seed-paths: ["seeds"]
 target-path: "target"
 clean-targets: ["target", "dbt_packages"]
+
+vars:
+  # Reference time for freshness checks (UTC, 'YYYY-MM-DD HH:MM:SS'). Unset = now.
+  quality_as_of: null
 
 models:
   canecon:
@@ -17,3 +22,19 @@ models:
       +materialized: table
     marts:
       +materialized: table
+
+seeds:
+  canecon:
+    series_catalog:
+      +column_types:
+        series_id: varchar
+        source: varchar
+        product_id: bigint
+        frequency: varchar
+        unit: varchar
+        max_age_days: integer
+        min_value: decimal(38, 10)
+        max_value: decimal(38, 10)
+        change_kind: varchar
+        warn_change: decimal(18, 6)
+        error_change: decimal(18, 6)

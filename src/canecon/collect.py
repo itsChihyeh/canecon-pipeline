@@ -11,6 +11,8 @@ Rules:
 - Identical content is stored once; each capture still gets its own manifest line.
 - A run is "success" only if every request succeeded. Downstream layers must use
   only successful runs, so a partial failure never publishes half a dataset.
+- Each daily or catch-up run records the collection days it covers (`for_dates`).
+  A day with no successful run is a gap; `canecon-catchup` fills it.
 """
 
 from __future__ import annotations
@@ -23,14 +25,17 @@ import sys
 import time
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable, Iterable, Iterator
+from zoneinfo import ZoneInfo
 
 import httpx
 
+from canecon.faults import FaultInjectingTransport, parse_rule
 from canecon.sources import (
     Request,
+    catchup_requests,
     daily_requests,
     gdp_realtime_data_requests,
     gdp_realtime_metadata_request,
@@ -105,6 +110,11 @@ def validate(req: Request, content: bytes) -> str | None:
         bad = [i for i, item in enumerate(data) if item.get("status") != "SUCCESS"]
         if bad:
             return f"items not SUCCESS at positions {bad}"
+    elif req.source == "statcan_wds_changes":
+        if not isinstance(data, dict) or data.get("status") != "SUCCESS":
+            return "expected status SUCCESS"
+        if not isinstance(data.get("object"), list):
+            return "expected a list in 'object'"
     elif req.source == "boc_valet":
         if not isinstance(data, dict) or "observations" not in data:
             return "missing 'observations'"
@@ -162,9 +172,12 @@ def run_collection(
     sleep: Callable[[float], None] = time.sleep,
     now: Callable[[], str] = utc_now,
     kind: str = "daily",
+    for_dates: list[str] | None = None,
 ) -> dict:
     run_id = f"{now()}_{uuid.uuid4().hex[:8]}"
     started_at = now()
+    if for_dates is None:
+        for_dates = [started_at[:10]] if kind == "daily" else []
     n_ok = 0
     n_requests = 0
     for req in requests:
@@ -208,9 +221,40 @@ def run_collection(
         "n_requests": n_requests,
         "n_ok": n_ok,
         "status": status,
+        "for_dates": sorted(for_dates),
     }
     store.append_run(summary)
     return summary
+
+
+# --- Coverage: which collection days have a successful run ------------------
+
+
+def run_days(run: dict) -> list[str]:
+    """Collection days a run covers. Runs logged before P3 have no for_dates."""
+    if "for_dates" in run:
+        return run["for_dates"]
+    return [run["started_at"][:10]] if run.get("kind", "daily") == "daily" else []
+
+
+def read_runs(store: RawStore) -> list[dict]:
+    if not store.runs.exists():
+        return []
+    return [json.loads(line) for line in store.runs.read_text(encoding="utf-8").splitlines() if line]
+
+
+def missing_days(runs: list[dict], until: date) -> list[date]:
+    """Days from the first daily run up to `until` (inclusive) with no successful run."""
+    daily_starts = [r["started_at"][:10] for r in runs if r.get("kind", "daily") == "daily"]
+    if not daily_starts:
+        return []
+    covered = {d for r in runs if r["status"] == "success" for d in run_days(r)}
+    day, out = date.fromisoformat(min(daily_starts)), []
+    while day <= until:
+        if day.isoformat() not in covered:
+            out.append(day)
+        day += timedelta(days=1)
+    return out
 
 
 def last_manifest_row(store: RawStore) -> dict:
@@ -234,12 +278,31 @@ def backfill_requests(store: RawStore) -> Iterator[Request]:
     yield from gdp_realtime_data_requests(list(releases))
 
 
+def make_client(fault_specs: list[str] | None = None) -> httpx.Client:
+    """HTTP client for the real APIs, optionally with injected faults (demos only)."""
+    transport: httpx.BaseTransport = httpx.HTTPTransport()
+    if fault_specs:
+        transport = FaultInjectingTransport(transport, [parse_rule(s) for s in fault_specs])
+    return httpx.Client(timeout=TIMEOUT_SECONDS, headers={"User-Agent": USER_AGENT}, transport=transport)
+
+
+def _common_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--data-dir", type=Path, default=Path("data/raw"))
+    parser.add_argument(
+        "--inject-fault",
+        action="append",
+        metavar="KEYWORD=FAULT",
+        help="demo only: answer requests whose URL contains KEYWORD with FAULT "
+        "(e.g. valet=500,500 or getSeriesInfo=503*); repeatable",
+    )
+
+
 def backfill_main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="One-time backfill of official GDP vintages.")
-    parser.add_argument("--data-dir", type=Path, default=Path("data/raw"))
+    _common_args(parser)
     args = parser.parse_args(argv)
     store = RawStore(args.data_dir)
-    with httpx.Client(timeout=TIMEOUT_SECONDS, headers={"User-Agent": USER_AGENT}) as client:
+    with make_client(args.inject_fault) as client:
         summary = run_collection(store, backfill_requests(store), client, kind="backfill_gdp_realtime")
     print(json.dumps(summary))
     return 0 if summary["status"] == "success" else 1
@@ -247,11 +310,57 @@ def backfill_main(argv: list[str] | None = None) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Collect raw API snapshots.")
-    parser.add_argument("--data-dir", type=Path, default=Path("data/raw"))
+    _common_args(parser)
     args = parser.parse_args(argv)
     store = RawStore(args.data_dir)
-    with httpx.Client(timeout=TIMEOUT_SECONDS, headers={"User-Agent": USER_AGENT}) as client:
+    with make_client(args.inject_fault) as client:
         summary = run_collection(store, daily_requests(), client)
+    print(json.dumps(summary))
+    return 0 if summary["status"] == "success" else 1
+
+
+MAX_CATCHUP_DAYS = 60
+
+
+def plan_catchup(store: RawStore, dates: list[date] | None, today: date) -> list[date]:
+    """Days to catch up: the given dates, or every gap up to today if none given."""
+    if dates:
+        future = [d for d in dates if d > today]
+        if future:
+            raise ValueError(f"cannot catch up future dates: {[d.isoformat() for d in future]}")
+        days = sorted(set(dates))
+    else:
+        days = missing_days(read_runs(store), today)
+    if len(days) > MAX_CATCHUP_DAYS:
+        raise ValueError(f"{len(days)} days to catch up; more than {MAX_CATCHUP_DAYS}, pass --date explicitly")
+    return days
+
+
+def catchup_main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Catch up missed collection days (all gaps up to today if no --date is given)."
+    )
+    _common_args(parser)
+    parser.add_argument(
+        "--date", type=date.fromisoformat, action="append", help="UTC day, e.g. 2026-11-05; repeatable"
+    )
+    args = parser.parse_args(argv)
+    store = RawStore(args.data_dir)
+    try:
+        days = plan_catchup(store, args.date, datetime.now(timezone.utc).date())
+    except ValueError as exc:
+        parser.error(str(exc))
+    if not days:
+        print(json.dumps({"status": "nothing_to_catch_up"}))
+        return 0
+    with make_client(args.inject_fault) as client:
+        summary = run_collection(
+            store,
+            catchup_requests(days, today_eastern=datetime.now(ZoneInfo("America/Toronto")).date()),
+            client,
+            kind="catchup",
+            for_dates=[d.isoformat() for d in days],
+        )
     print(json.dumps(summary))
     return 0 if summary["status"] == "success" else 1
 

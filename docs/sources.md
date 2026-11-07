@@ -60,6 +60,11 @@ Finding: levels in this table jump when the base year changes (for 2015-01: abou
 
 Coverage assumption: the vintage table plus live captures cover every monthly GDP release since 2015-03 without gaps (table ends with the 2026-09-29 release; live capture starts with the 2026-10-30 release).
 
+## Endpoints used by catch-up (checked 2026-11-07)
+
+- StatCan WDS `getChangedCubeList/<YYYY-MM-DD>` returns `{"status": "SUCCESS", "object": [{"productId", "releaseTime"}, ...]}` for tables released that day: 75 tables for 2026-11-06 (including 14-10-0287), 29 for 2026-10-30 (including 36-10-0434), an empty list for Sunday 2026-11-01. A future date returns HTTP 404 with `{"message": "The input date is a future release date."}`.
+- Bank of Canada Valet `observations/<codes>/json?start_date=YYYY-MM-DD` (and `end_date`) returns observations for a date range, so a catch-up can ask for everything since the earliest missed day.
+
 ## Open items
 
 - Confirm whether FX data may be republished.

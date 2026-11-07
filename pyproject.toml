@@ -19,6 +19,8 @@ dev = [
 canecon-collect = "canecon.collect:main"
 canecon-backfill = "canecon.collect:backfill_main"
 canecon-build = "canecon.build:main"
+canecon-catchup = "canecon.collect:catchup_main"
+canecon-demo-failure = "canecon.demo:main"
 
 [build-system]
 requires = ["hatchling"]

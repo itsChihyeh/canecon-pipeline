@@ -2,7 +2,7 @@
 
 A scheduled Python + SQL pipeline that collects official Canadian economic data (Statistics Canada, Bank of Canada), keeps every published vintage, tracks revisions and lineage from raw API response to dashboard, and publishes a public dashboard.
 
-**Status: P2 (data model).** Daily collection, GDP vintage backfill, DuckDB + dbt models and their tests exist. The dashboard and the analysis do not yet. Nothing below is a measured result.
+**Status: P3 (reliability).** Daily collection, GDP vintage backfill, DuckDB + dbt models, catch-up for missed days, fault injection and data quality checks exist, with tests. The dashboard and the analysis do not yet.
 
 ## Question
 
@@ -27,14 +27,18 @@ uv sync
 uv run pytest -q
 uv run canecon-collect --data-dir data/raw      # one daily capture
 uv run canecon-backfill --data-dir data/raw     # one-time: official GDP vintages
-uv run canecon-build --data-dir data/raw        # load into DuckDB, run dbt models and tests
+uv run canecon-build --data-dir data/raw        # load into DuckDB, run dbt models, tests and quality checks
+uv run canecon-catchup --data-dir data/raw      # fill missed collection days
+uv run canecon-demo-failure                     # offline demo: injected 500s, retry, partial run, catch-up
 ```
+
+Failure handling, catch-up, the quality checks and what was verified: [docs/reliability.md](docs/reliability.md).
 
 Models and columns: [docs/data-dictionary.md](docs/data-dictionary.md).
 
 The collector writes `objects/` (responses named by SHA-256), `manifest.jsonl` (one line per capture) and `runs.jsonl` (one line per run). Exit code is non-zero unless every request succeeded.
 
-In GitHub Actions, `Daily collect` runs at 15:00 UTC and commits snapshots to the `data` branch. `CI` runs the tests on every push.
+In GitHub Actions, `Daily collect` runs at 15:00 UTC, commits snapshots to the `data` branch, then builds the warehouse; the job fails (and GitHub emails the owner) if a request or an error-level quality check fails. Run it by hand with mode `catchup` to fill missed days. `CI` runs the tests on every push.
 
 ## Data attribution
 

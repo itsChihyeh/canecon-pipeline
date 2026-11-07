@@ -92,7 +92,8 @@ def warehouse(tmp_path_factory):
     build_store(tmp / "raw")
     db = tmp / "wh.duckdb"
     load(tmp / "raw", db)
-    assert run_dbt(db), "dbt build (models + data tests) failed"
+    # Synthetic dates and tiny values: quality thresholds are tested in test_reliability.py.
+    assert run_dbt(db, exclude="tag:quality"), "dbt build (models + data tests) failed"
     con = duckdb.connect(str(db))
     yield con, tmp
     con.close()
@@ -191,7 +192,7 @@ def test_rebuild_is_idempotent(warehouse, tmp_path):
     con, tmp = warehouse
     db2 = tmp_path / "again.duckdb"
     load(tmp / "raw", db2)
-    assert run_dbt(db2)
+    assert run_dbt(db2, exclude="tag:quality")
     con2 = duckdb.connect(str(db2))
     q = "select * from vintages order by series_id, ref_period, vintage_number"
     assert con2.execute(q).fetchall() == con.execute(q).fetchall()

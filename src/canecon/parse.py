@@ -109,6 +109,17 @@ def release_dates(metadata_content: bytes) -> dict[int, date]:
     return out
 
 
+def parse_changed_cubes(content: bytes) -> list[dict]:
+    """getChangedCubeList/<day> -> [{product_id, release_time (UTC)}]."""
+    return [
+        {
+            "product_id": int(o["productId"]),
+            "release_time": eastern_to_utc(datetime.fromisoformat(o["releaseTime"])),
+        }
+        for o in json.loads(content)["object"]
+    ]
+
+
 COORD_RE = re.compile(r"^1\.1\.1\.1\.(\d+)\.")
 
 

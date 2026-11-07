@@ -12,7 +12,13 @@ Times are UTC. Three times are kept apart everywhere:
 |---|---|---|
 | `raw.observations` | snapshot x series x ref_period | Parsed from successful runs only. `value` as reported, with `scalar_factor` (power of 10) and `decimals`. `content_sha256` / `object_path` point to the raw response. |
 | `raw.captures` | request attempt | Copy of `manifest.jsonl`. |
-| `raw.runs` | collector run | Copy of `runs.jsonl`; `status` is success / partial / failed. |
+| `raw.runs` | collector run | Copy of `runs.jsonl`; `status` is success / partial / failed; `kind` is daily / catchup / backfill_gdp_realtime. |
+| `raw.run_days` | run x collection day | Days (UTC) a run covers: a daily run its own day, a catch-up run the missed days it fills. |
+| `raw.changed_tables` | day x StatCan table | Tables StatCan reports as released that day (`getChangedCubeList`), asked during catch-up runs. |
+
+## seeds
+
+`series_catalog`: one row per series with its source, StatCan product id, frequency, unit and data quality thresholds (`max_age_days`, `min_value`/`max_value`, `change_kind` pct or abs, `warn_change`, `error_change`).
 
 ## staging
 
@@ -44,6 +50,9 @@ A new vintage starts only if the value differs from the previous one after round
 | `mart_revisions` | How much did the level move? Includes base-year changes; do not use for analysis. |
 | `mart_growth_revisions` | How much was month-over-month growth revised (percentage points)? First growth uses the previous month as known at the same time. |
 | `mart_data_freshness` | When did each request last succeed? |
+| `mart_series_freshness` | How old is each series' latest reference period, against its allowed age? |
+| `mart_collection_coverage` | Which collection days were collected, caught up, missing or pending, and which of our StatCan tables were released on a caught-up day? |
+| `mart_quality_checks` | One row per (check, subject) with observed value, bounds and status pass / warn / error. See [reliability.md](reliability.md). |
 
 ## Point-in-time
 

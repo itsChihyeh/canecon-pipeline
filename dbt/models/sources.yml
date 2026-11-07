@@ -11,3 +11,7 @@ sources:
         description: One row per request attempt (copy of manifest.jsonl).
       - name: runs
         description: One row per collector run (copy of runs.jsonl).
+      - name: run_days
+        description: Collection days (UTC) each run covers; a catch-up run lists the missed days it fills.
+      - name: changed_tables
+        description: StatCan tables reported as changed on a day by getChangedCubeList (catch-up runs only).
