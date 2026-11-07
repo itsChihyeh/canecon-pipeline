@@ -13,6 +13,10 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=8",
+    "scikit-learn>=1.9.1",
+]
+orchestration = [
+    "dagster>=1.13.29",
 ]
 
 [project.scripts]
@@ -23,6 +27,7 @@ canecon-catchup = "canecon.collect:catchup_main"
 canecon-demo-failure = "canecon.demo:main"
 canecon-export = "canecon.export:main"
 canecon-brief = "canecon.brief:main"
+canecon-baseline = "canecon.baseline:main"
 
 [build-system]
 requires = ["hatchling"]
