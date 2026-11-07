@@ -20,6 +20,8 @@ Times are UTC. Three times are kept apart everywhere:
 
 `series_catalog`: one row per series with its source, StatCan product id, frequency, unit and data quality thresholds (`max_age_days`, `min_value`/`max_value`, `change_kind` pct or abs, `warn_change`, `error_change`).
 
+`series_info`: one row per series with the dashboard label, definition, source table or code, source link and `public_dashboard` (whether the series may appear on the public site). The dbt test `assert_series_documented` requires a row with a definition and link for every catalogued series.
+
 ## staging
 
 `stg_observations`: typed observations. `value_scaled = value x 10^scalar_factor` (base units). `precision_step = 10^(scalar_factor - decimals)`, the smallest change the source can express.
@@ -49,10 +51,15 @@ A new vintage starts only if the value differs from the previous one after round
 | `mart_first_release` | What was first published? `is_true_first_release` is false when the value was already out before our coverage of that series started. |
 | `mart_revisions` | How much did the level move? Includes base-year changes; do not use for analysis. |
 | `mart_growth_revisions` | How much was month-over-month growth revised (percentage points)? First growth uses the previous month as known at the same time. |
+| `mart_growth_revision_path` | What was each month's growth at every release from its first one on? One row per (series, month, release); `release_number` 1 = first release, `change_since_first_pp`, `gap_to_latest_pp`. A release is a distinct publication time seen for the series, whether or not it changed this month. |
 | `mart_data_freshness` | When did each request last succeed? |
 | `mart_series_freshness` | How old is each series' latest reference period, against its allowed age? |
 | `mart_collection_coverage` | Which collection days were collected, caught up, missing or pending, and which of our StatCan tables were released on a caught-up day? |
 | `mart_quality_checks` | One row per (check, subject) with observed value, bounds and status pass / warn / error. See [reliability.md](reliability.md). |
+
+## Dashboard export
+
+`canecon-export` (`src/canecon/export.py`) copies the tables the dashboard needs into `dashboard/sources/canecon/canecon.duckdb`, in DuckDB storage format v1.4.0 because the dashboard's DuckDB driver cannot read 2.x files. Only series with `public_dashboard = true` are copied (`tests/test_export.py`). `build_info` records the build time and the `data` branch commit, which the dashboard uses to link each vintage to its raw snapshot on GitHub.
 
 ## Point-in-time
 

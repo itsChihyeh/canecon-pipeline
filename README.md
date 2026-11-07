@@ -2,7 +2,9 @@
 
 A scheduled Python + SQL pipeline that collects official Canadian economic data (Statistics Canada, Bank of Canada), keeps every published vintage, tracks revisions and lineage from raw API response to dashboard, and publishes a public dashboard.
 
-**Status: P3 (reliability).** Daily collection, GDP vintage backfill, DuckDB + dbt models, catch-up for missed days, fault injection and data quality checks exist, with tests. The dashboard and the analysis do not yet.
+**Status: P4 (dashboard).** Daily collection, GDP vintage backfill, DuckDB + dbt models, catch-up for missed days, fault injection, data quality checks, a public dashboard and a first analysis exist, with tests.
+
+**Dashboard:** https://itschihyeh.github.io/canecon-pipeline/ (overview, revision explorer, point-in-time comparison, data quality). **Analysis:** [docs/analysis.md](docs/analysis.md).
 
 ## Question
 
@@ -30,6 +32,16 @@ uv run canecon-backfill --data-dir data/raw     # one-time: official GDP vintage
 uv run canecon-build --data-dir data/raw        # load into DuckDB, run dbt models, tests and quality checks
 uv run canecon-catchup --data-dir data/raw      # fill missed collection days
 uv run canecon-demo-failure                     # offline demo: injected 500s, retry, partial run, catch-up
+uv run canecon-export                           # write the public tables for the dashboard
+```
+
+Dashboard (requires Node 18+; after `canecon-build` and `canecon-export`):
+
+```bash
+cd dashboard
+npm ci
+npm run sources     # read the exported tables
+npm run dev         # local preview; `npm run build` writes the static site to dashboard/build
 ```
 
 Failure handling, catch-up, the quality checks and what was verified: [docs/reliability.md](docs/reliability.md).
@@ -38,7 +50,9 @@ Models and columns: [docs/data-dictionary.md](docs/data-dictionary.md).
 
 The collector writes `objects/` (responses named by SHA-256), `manifest.jsonl` (one line per capture) and `runs.jsonl` (one line per run). Exit code is non-zero unless every request succeeded.
 
-In GitHub Actions, `Daily collect` runs at 15:00 UTC, commits snapshots to the `data` branch, then builds the warehouse; the job fails (and GitHub emails the owner) if a request or an error-level quality check fails. Run it by hand with mode `catchup` to fill missed days. `CI` runs the tests on every push.
+In GitHub Actions, `Daily collect` runs at 15:00 UTC, commits snapshots to the `data` branch, then builds the warehouse; the job fails (and GitHub emails the owner) if a request or an error-level quality check fails. Run it by hand with mode `catchup` to fill missed days. `Dashboard` then rebuilds the warehouse from the `data` branch, exports the public tables and publishes the Evidence site to GitHub Pages. `CI` runs the tests on every push.
+
+The dashboard shows only series marked `public_dashboard` in `dbt/seeds/series_info.csv`. USD/CAD is collected but not shown: the Bank of Canada sources it from LSEG and its reuse terms for third-party data are unclear.
 
 ## Data attribution
 

@@ -197,3 +197,20 @@ def test_rebuild_is_idempotent(warehouse, tmp_path):
     q = "select * from vintages order by series_id, ref_period, vintage_number"
     assert con2.execute(q).fetchall() == con.execute(q).fetchall()
     con2.close()
+
+
+def test_growth_revision_path_follows_each_release(warehouse):
+    con, _ = warehouse
+    rows = con.execute(
+        "select release_number, cast(released_at as varchar), growth_pct, change_since_first_pp, gap_to_latest_pp "
+        "from mart_growth_revision_path where series_id = 'gdp_all_industries' and ref_period = '2025-12-01' "
+        "order by release_number"
+    ).fetchall()
+    # Dec first appears in the Feb 9 release (Nov 101, Dec 200): 200/101 - 1 = 98.0198%.
+    # Mar 9 revises Nov back to 100: 200/100 - 1 = 100%. The Apr 9 release only re-expresses
+    # the same values (scale/decimals), so growth stays 100%. The partial May run is ignored.
+    assert [(n, t, float(g), float(c), float(d)) for n, t, g, c, d in rows] == [
+        (1, "2026-02-09 13:30:00", 98.0198, 0.0, 1.9802),
+        (2, "2026-03-09 12:30:00", 100.0, 1.9802, 0.0),
+        (3, "2026-04-09 12:30:00", 100.0, 1.9802, 0.0),
+    ]

@@ -1,0 +1,82 @@
+name: Dashboard
+
+# Rebuilds the warehouse from the data branch and publishes the Evidence dashboard to
+# GitHub Pages: after every Daily collect run, on dashboard or model changes, or by hand.
+on:
+  workflow_run:
+    workflows: ["Daily collect"]
+    types: [completed]
+  push:
+    branches: [main]
+    paths: ["dashboard/**", "dbt/**", "src/**", ".github/workflows/dashboard.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check out data branch
+        id: data
+        run: |
+          git fetch --depth=1 origin data
+          git worktree add data-branch FETCH_HEAD
+          echo "commit=$(git rev-parse --short FETCH_HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked
+
+      # Error-level quality checks fail this step but the site is still published, so the
+      # Data quality page shows them. If a model fails, its tables are missing, the export
+      # below fails and the previous site stays up.
+      - name: Build warehouse, run dbt models, tests and data quality checks
+        id: build
+        run: uv run canecon-build --data-dir data-branch/raw --db warehouse.duckdb
+        continue-on-error: true
+
+      - name: Export public tables for the dashboard
+        run: >
+          uv run canecon-export --db warehouse.duckdb
+          --out dashboard/sources/canecon/canecon.duckdb
+          --data-commit ${{ steps.data.outputs.commit }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: Build site
+        working-directory: dashboard
+        run: |
+          npm ci
+          npm run sources:strict
+          npm run build:strict
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dashboard/build
+
+      - name: Report data quality errors
+        if: steps.build.outcome != 'success'
+        run: echo "::warning::canecon-build failed (see its step log); the site was built and shows the failing checks"
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

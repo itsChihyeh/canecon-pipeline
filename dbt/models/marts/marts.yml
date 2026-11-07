@@ -23,3 +23,8 @@ models:
     tests:
       - dbt_utils_free_unique_combo:
           columns: [series_id, ref_period]
+  - name: mart_growth_revision_path
+    description: Month-over-month growth of each month as known at every later release (percentage points).
+    tests:
+      - dbt_utils_free_unique_combo:
+          columns: [series_id, ref_period, release_number]

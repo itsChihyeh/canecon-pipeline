@@ -1,0 +1,5 @@
+# Written by `uv run canecon-export` (public series only, see src/canecon/export.py).
+name: canecon
+type: duckdb
+options:
+  filename: canecon.duckdb
