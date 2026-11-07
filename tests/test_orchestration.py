@@ -1,6 +1,6 @@
 """Dagster assets: a failed build stops everything downstream; the asset check reads the quality mart.
 
-The happy path on real data is run by hand (see docs/orchestration.md): it needs the published
+The happy path on real data is run by hand (see docs/extensions.md): it needs the published
 snapshots, and the synthetic scenario here is deliberately outside the quality bounds.
 """
 
