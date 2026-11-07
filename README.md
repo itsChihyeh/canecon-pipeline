@@ -2,57 +2,69 @@
 
 A scheduled Python + SQL pipeline that collects official Canadian economic data (Statistics Canada, Bank of Canada), keeps every published vintage, tracks revisions and lineage from raw API response to dashboard, and publishes a public dashboard.
 
-**Status: P4 (dashboard).** Daily collection, GDP vintage backfill, DuckDB + dbt models, catch-up for missed days, fault injection, data quality checks, a public dashboard and a first analysis exist, with tests.
+**Live dashboard:** https://itschihyeh.github.io/canecon-pipeline/ · **Analysis:** [docs/analysis.md](docs/analysis.md) · **Demo script:** [docs/demo-script.md](docs/demo-script.md)
 
-**Dashboard:** https://itschihyeh.github.io/canecon-pipeline/ (overview, revision explorer, point-in-time comparison, data quality). **Analysis:** [docs/analysis.md](docs/analysis.md).
+## The problem
 
-## Question
+Official figures are revised after they are first published. Canada's monthly GDP growth for July 2021 was first reported as a 0.06% decline; it now shows a 0.68% increase. A table that keeps only the latest value cannot say what was known on a given day, or how far first releases move.
 
-How much do first-release estimates of Canada's monthly GDP and retail sales get revised, and how long until they settle?
+This pipeline keeps every published value of every month (a *vintage*), with three separate times: the period it describes, when the source published it, and when we captured it. It answers:
 
-## Planned design
+- What was the figure as known on day T, with nothing published after T? (point-in-time)
+- How much were first releases revised, and how long until they settle?
+- Where did a number on the dashboard come from? (link to the exact raw API response)
 
-- **raw** (append-only): every API response saved as-is with a manifest (source, URL and parameters, capture time in UTC, HTTP status, SHA-256).
-- **vintages**: one row per new value of (series, reference period), with release time, first seen, superseded, and source snapshot.
-- **marts**: latest value, first release, revision size, point-in-time views.
+Finding so far, for GDP: across 140 months (2015-01 to 2026-08), first-release month-over-month growth moved 0.15 percentage points on average by today, with the right sign in 86% of months; estimates still move after three years, mostly at the annual revisions. Retail sales has no revision history yet. Details and limits in [docs/analysis.md](docs/analysis.md).
 
-Stack: Python 3.12, DuckDB, dbt (dbt-duckdb), pytest, GitHub Actions, Evidence.
+## How it works
 
-Data sources and their terms: [docs/sources.md](docs/sources.md).
+```mermaid
+flowchart LR
+    A[StatCan WDS<br/>Bank of Canada Valet] -->|daily, retries| B[raw layer on data branch<br/>append-only, SHA-256 names]
+    B -->|successful runs only| C[DuckDB + dbt<br/>staging, vintages, marts]
+    C -->|public series only| D[export]
+    D --> E[Evidence static site<br/>GitHub Pages]
+```
+
+- **Collect** (GitHub Actions, 15:00 UTC daily): 3 requests cover 8 series. Retries with backoff; a run is `success` only if every request succeeded.
+- **Raw layer**: each response stored once under its SHA-256 on the `data` branch, with a manifest of URL, parameters, capture time and status. Reruns add nothing new when the bytes are the same.
+- **Model**: the DuckDB warehouse is rebuilt from the snapshots each time. dbt finds revisions with window functions, ignoring changes of scale or decimals, and computes revision marts and 26 data quality checks. An error-level check fails the build.
+- **History**: GDP revisions since 2015 come from Statistics Canada's real-time table 36-10-0491 (140 releases); other series accumulate from 2026-11-07.
+- **Dashboard**: only series cleared for publication are exported; the static site is rebuilt after every collection.
+
+More: [architecture](docs/architecture.md) · [design decisions](docs/design-decisions.md) · [reliability](docs/reliability.md) · [data dictionary](docs/data-dictionary.md) · [sources and terms](docs/sources.md) · [bug log](docs/bug-log.md) · [how this was built](docs/how-this-was-built.md)
+
+Stack: Python 3.12, httpx, DuckDB, dbt (dbt-duckdb), SQL, pytest, GitHub Actions, Evidence.
 
 ## Run it
 
-Requires [uv](https://docs.astral.sh/uv/) and Python 3.12.
+Requires [uv](https://docs.astral.sh/uv/). The tests need no network.
 
 ```bash
 uv sync
-uv run pytest -q
-uv run canecon-collect --data-dir data/raw      # one daily capture
-uv run canecon-backfill --data-dir data/raw     # one-time: official GDP vintages
-uv run canecon-build --data-dir data/raw        # load into DuckDB, run dbt models, tests and quality checks
-uv run canecon-catchup --data-dir data/raw      # fill missed collection days
-uv run canecon-demo-failure                     # offline demo: injected 500s, retry, partial run, catch-up
-uv run canecon-export                           # write the public tables for the dashboard
+uv run pytest -q                 # 40 tests
+uv run canecon-demo-failure      # offline: injected API failures, retry, partial run, catch-up
 ```
 
-Dashboard (requires Node 18+; after `canecon-build` and `canecon-export`):
+Build the warehouse from the published snapshots:
 
 ```bash
-cd dashboard
-npm ci
-npm run sources     # read the exported tables
-npm run dev         # local preview; `npm run build` writes the static site to dashboard/build
+git fetch origin data && mkdir -p data/snap && git archive origin/data | tar -x -C data/snap
+uv run canecon-build --data-dir data/snap/raw --db data/local/warehouse.duckdb
 ```
 
-Failure handling, catch-up, the quality checks and what was verified: [docs/reliability.md](docs/reliability.md).
+Other commands: `canecon-collect` (one live capture), `canecon-catchup` (fill missed days), `canecon-backfill` (official GDP vintages), `canecon-export` (public tables for the dashboard). Dashboard (Node 18+), after `canecon-export`: `cd dashboard && npm ci && npm run sources && npm run dev`.
 
-Models and columns: [docs/data-dictionary.md](docs/data-dictionary.md).
+Checked from a fresh clone on 2026-11-07 (Windows 11, Python 3.12.10, uv 0.11.21, Node 24.17.0): `uv sync --locked`, 40 tests passed, `canecon-build` on `data` commit `53f8060` took about 30 s and passed with one expected warning, and the dashboard built with `npm run build:strict`.
 
-The collector writes `objects/` (responses named by SHA-256), `manifest.jsonl` (one line per capture) and `runs.jsonl` (one line per run). Exit code is non-zero unless every request succeeded.
+## Limits
 
-In GitHub Actions, `Daily collect` runs at 15:00 UTC, commits snapshots to the `data` branch, then builds the warehouse; the job fails (and GitHub emails the owner) if a request or an error-level quality check fails. Run it by hand with mode `catchup` to fill missed days. `Dashboard` then rebuilds the warehouse from the `data` branch, exports the public tables and publishes the Evidence site to GitHub Pages. `CI` runs the tests on every push.
-
-The dashboard shows only series marked `public_dashboard` in `dbt/seeds/series_info.csv`. USD/CAD is collected but not shown: the Bank of Canada sources it from LSEG and its reuse terms for third-party data are unclear.
+- Only GDP has a long revision history. Retail sales, unemployment, CPI and the Bank of Canada series start on 2026-11-07, so their revision results are still empty.
+- Daily collection began on 2026-11-07; there is no long run history or success rate yet.
+- Bank of Canada data has no publication time in the API, so its capture time is used (conservative for point-in-time queries).
+- An API cannot be re-queried for a past day: a missed day is filled with today's data, and a StatCan table released twice inside a gap would lose the earlier vintage.
+- USD/CAD is collected but not shown: the Bank of Canada sources it from LSEG and its reuse terms are unclear.
+- A personal portfolio project built with an AI coding assistant; not used by any organisation. See [how this was built](docs/how-this-was-built.md).
 
 ## Data attribution
 
