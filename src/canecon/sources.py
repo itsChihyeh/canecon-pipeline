@@ -73,3 +73,48 @@ def daily_requests() -> list[Request]:
             params={"recent": BOC_RECENT},
         ),
     ]
+
+
+# --- One-time backfill of official GDP vintages -------------------------------
+# Table 36-10-0491: "Historical (real-time) releases of GDP at basic prices, by
+# industry, monthly". Coordinate 1.1.1.1.<release> = Canada, SAAR, chained (2017)
+# dollars, all industries, one vector per release. Same concept as v65201210.
+GDP_SERIES_ID = "gdp_all_industries"
+GDP_REALTIME_PID = 36100491
+# latestN counts back from the table's last period, so old releases need a large N.
+GDP_REALTIME_LATEST_N = 160
+GDP_REALTIME_BATCH = 20
+
+
+def gdp_realtime_metadata_request() -> Request:
+    return Request(
+        request_id="statcan_gdp_realtime_metadata",
+        source="statcan_wds",
+        method="POST",
+        url=f"{STATCAN_WDS}/getCubeMetadata",
+        json_body=[{"productId": GDP_REALTIME_PID}],
+    )
+
+
+def gdp_realtime_data_requests(release_members: list[int]) -> list[Request]:
+    members = sorted(release_members)
+    out = []
+    for i in range(0, len(members), GDP_REALTIME_BATCH):
+        batch = members[i : i + GDP_REALTIME_BATCH]
+        out.append(
+            Request(
+                request_id=f"statcan_gdp_realtime_releases_{batch[0]:03d}_{batch[-1]:03d}",
+                source="statcan_wds",
+                method="POST",
+                url=f"{STATCAN_WDS}/getDataFromCubePidCoordAndLatestNPeriods",
+                json_body=[
+                    {
+                        "productId": GDP_REALTIME_PID,
+                        "coordinate": f"1.1.1.1.{m}.0.0.0.0.0",
+                        "latestN": GDP_REALTIME_LATEST_N,
+                    }
+                    for m in batch
+                ],
+            )
+        )
+    return out

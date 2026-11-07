@@ -4,7 +4,10 @@ version = "0.1.0"
 description = "Collect Canadian economic data with vintage tracking and lineage"
 requires-python = ">=3.12"
 dependencies = [
+    "dbt-duckdb>=1.11.1",
+    "duckdb>=2.0.0",
     "httpx>=0.27",
+    "tzdata>=2026.6",
 ]
 
 [dependency-groups]
@@ -14,6 +17,8 @@ dev = [
 
 [project.scripts]
 canecon-collect = "canecon.collect:main"
+canecon-backfill = "canecon.collect:backfill_main"
+canecon-build = "canecon.build:main"
 
 [build-system]
 requires = ["hatchling"]

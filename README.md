@@ -2,7 +2,7 @@
 
 A scheduled Python + SQL pipeline that collects official Canadian economic data (Statistics Canada, Bank of Canada), keeps every published vintage, tracks revisions and lineage from raw API response to dashboard, and publishes a public dashboard.
 
-**Status: P1 (daily collection).** The raw collector and its tests exist; modeling, dashboard and metrics do not yet. Nothing below is a measured result.
+**Status: P2 (data model).** Daily collection, GDP vintage backfill, DuckDB + dbt models and their tests exist. The dashboard and the analysis do not yet. Nothing below is a measured result.
 
 ## Question
 
@@ -25,8 +25,12 @@ Requires [uv](https://docs.astral.sh/uv/) and Python 3.12.
 ```bash
 uv sync
 uv run pytest -q
-uv run canecon-collect --data-dir data/raw
+uv run canecon-collect --data-dir data/raw      # one daily capture
+uv run canecon-backfill --data-dir data/raw     # one-time: official GDP vintages
+uv run canecon-build --data-dir data/raw        # load into DuckDB, run dbt models and tests
 ```
+
+Models and columns: [docs/data-dictionary.md](docs/data-dictionary.md).
 
 The collector writes `objects/` (responses named by SHA-256), `manifest.jsonl` (one line per capture) and `runs.jsonl` (one line per run). Exit code is non-zero unless every request succeeded.
 

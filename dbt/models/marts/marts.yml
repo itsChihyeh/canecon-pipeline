@@ -1,0 +1,25 @@
+version: 2
+
+models:
+  - name: mart_latest
+    columns:
+      - name: value
+        tests: [not_null]
+    tests:
+      - dbt_utils_free_unique_combo:
+          columns: [series_id, ref_period]
+  - name: mart_first_release
+    tests:
+      - dbt_utils_free_unique_combo:
+          columns: [series_id, ref_period]
+  - name: mart_revisions
+    description: First release vs latest value, for periods whose first release we observed.
+    tests:
+      - dbt_utils_free_unique_combo:
+          columns: [series_id, ref_period]
+  - name: mart_data_freshness
+  - name: mart_growth_revisions
+    description: First-published vs latest month-over-month growth (percentage points).
+    tests:
+      - dbt_utils_free_unique_combo:
+          columns: [series_id, ref_period]

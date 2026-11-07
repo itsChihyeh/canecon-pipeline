@@ -5,6 +5,12 @@ on:
     # 15:00 UTC = 10:00 EST / 11:00 EDT, after StatCan's 08:30 ET releases.
     - cron: "0 15 * * *"
   workflow_dispatch:
+    inputs:
+      mode:
+        description: "daily = normal collection; backfill_gdp = one-time fetch of official GDP vintages (36-10-0491)"
+        type: choice
+        options: [daily, backfill_gdp]
+        default: daily
 
 permissions:
   contents: write
@@ -34,7 +40,12 @@ jobs:
 
       - name: Collect
         id: collect
-        run: uv run canecon-collect --data-dir data-branch/raw
+        run: |
+          if [ "${{ inputs.mode }}" = "backfill_gdp" ]; then
+            uv run canecon-backfill --data-dir data-branch/raw
+          else
+            uv run canecon-collect --data-dir data-branch/raw
+          fi
         continue-on-error: true
 
       - name: Commit snapshots to data branch
@@ -43,11 +54,16 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add raw
-          git commit -m "Collect $(date -u +%Y-%m-%dT%H:%MZ) (${{ steps.collect.outcome }})"
+          git commit -m "Collect $(date -u +%Y-%m-%dT%H:%MZ) ${{ inputs.mode || 'daily' }} (${{ steps.collect.outcome }})"
           git push origin data
 
+      - name: Build warehouse and run dbt data tests on all snapshots
+        id: build
+        run: uv run canecon-build --data-dir data-branch/raw --db warehouse.duckdb
+        continue-on-error: true
+
       - name: Fail if any request failed
-        if: steps.collect.outcome != 'success'
+        if: steps.collect.outcome != 'success' || steps.build.outcome != 'success'
         run: |
-          echo "::error::Collection was not fully successful; see data-branch/raw/runs.jsonl"
+          echo "::error::collect=${{ steps.collect.outcome }} build=${{ steps.build.outcome }}; see data-branch/raw/runs.jsonl and the step logs"
           exit 1

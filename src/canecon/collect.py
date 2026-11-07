@@ -25,11 +25,16 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Iterable, Iterator
 
 import httpx
 
-from canecon.sources import Request, daily_requests
+from canecon.sources import (
+    Request,
+    daily_requests,
+    gdp_realtime_data_requests,
+    gdp_realtime_metadata_request,
+)
 
 RETRYABLE_STATUS = {409, 429, 500, 502, 503, 504}
 MAX_ATTEMPTS = 4
@@ -152,15 +157,18 @@ class RawStore:
 
 def run_collection(
     store: RawStore,
-    requests: list[Request],
+    requests: Iterable[Request],
     client: httpx.Client,
     sleep: Callable[[float], None] = time.sleep,
     now: Callable[[], str] = utc_now,
+    kind: str = "daily",
 ) -> dict:
     run_id = f"{now()}_{uuid.uuid4().hex[:8]}"
     started_at = now()
     n_ok = 0
+    n_requests = 0
     for req in requests:
+        n_requests += 1
         captured_at = now()
         result = fetch_with_retry(client, req, sleep=sleep)
         sha = new_object = None
@@ -191,17 +199,50 @@ def run_collection(
                 "new_object": new_object,
             }
         )
-    status = "success" if n_ok == len(requests) else ("failed" if n_ok == 0 else "partial")
+    status = "success" if n_ok == n_requests else ("failed" if n_ok == 0 else "partial")
     summary = {
         "run_id": run_id,
+        "kind": kind,
         "started_at": started_at,
         "finished_at": now(),
-        "n_requests": len(requests),
+        "n_requests": n_requests,
         "n_ok": n_ok,
         "status": status,
     }
     store.append_run(summary)
     return summary
+
+
+def last_manifest_row(store: RawStore) -> dict:
+    with store.manifest.open(encoding="utf-8") as f:
+        *_, last = f
+    return json.loads(last)
+
+
+def backfill_requests(store: RawStore) -> Iterator[Request]:
+    """Fetch the 36-10-0491 metadata first, then one request per batch of releases.
+
+    Stops after the metadata request if it failed, so the run is marked failed.
+    """
+    from canecon.parse import release_dates
+
+    yield gdp_realtime_metadata_request()
+    row = last_manifest_row(store)
+    if not row["ok"]:
+        return
+    releases = release_dates((store.root / row["object_path"]).read_bytes())
+    yield from gdp_realtime_data_requests(list(releases))
+
+
+def backfill_main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="One-time backfill of official GDP vintages.")
+    parser.add_argument("--data-dir", type=Path, default=Path("data/raw"))
+    args = parser.parse_args(argv)
+    store = RawStore(args.data_dir)
+    with httpx.Client(timeout=TIMEOUT_SECONDS, headers={"User-Agent": USER_AGENT}) as client:
+        summary = run_collection(store, backfill_requests(store), client, kind="backfill_gdp_realtime")
+    print(json.dumps(summary))
+    return 0 if summary["status"] == "success" else 1
 
 
 def main(argv: list[str] | None = None) -> int:

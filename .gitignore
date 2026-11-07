@@ -24,3 +24,4 @@ logs/
 node_modules/
 build/
 .evidence/
+dbt/.user.yml

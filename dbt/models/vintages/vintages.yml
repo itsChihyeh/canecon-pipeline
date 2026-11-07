@@ -1,0 +1,24 @@
+version: 2
+
+models:
+  - name: vintages
+    description: >
+      Every distinct published value of each (series, reference period). valid_from is the
+      publication time (UTC); valid_to is when the next vintage was published (null = current).
+    columns:
+      - name: series_id
+        tests: [not_null]
+      - name: ref_period
+        tests: [not_null]
+      - name: vintage_number
+        tests: [not_null]
+      - name: value
+        tests: [not_null]
+      - name: valid_from
+        tests: [not_null]
+      - name: source_snapshot_sha256
+        description: SHA-256 of the raw response this value came from (lineage).
+        tests: [not_null]
+    tests:
+      - dbt_utils_free_unique_combo:
+          columns: [series_id, ref_period, vintage_number]

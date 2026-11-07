@@ -52,8 +52,15 @@ Do not use the Statistics Canada name or logo as branding.
 - StatCan WDS (https://www.statcan.gc.ca/en/developers/wds/user-guide): 50 requests/s server-wide, 25 requests/s per IP. Data released business days at 8:30 ET. From midnight to 8:30 ET some methods return no data; tables being updated can return HTTP 409. Schedule the daily run after ~10:00 ET and treat 409 as retryable.
 - Bank of Canada Valet: terms forbid circumventing request limits but no numeric limit was found (the docs page did not render for automated reading). One small request per day is far below any plausible limit.
 
+## GDP backfill (done 2026-11-07)
+
+36-10-0491 has a Release dimension with 140 members (March 3, 2015 to September 29, 2026). Coordinate `1.1.1.1.<release>` = Canada, SAAR, chained (2017) dollars, all industries. `canecon-backfill` fetches them in 8 requests and stores them as raw snapshots like any other capture. The points' own `releaseTime` is the table refresh time (2026-10-13 for every release), so the publication date comes from the Release member name, at 08:30 Eastern.
+
+Finding: levels in this table jump when the base year changes (for 2015-01: about 1.66M before the Dec 2018 release, 1.81M after it, 1.91M from Dec 2023). These are definitional, not economic revisions, so revision analysis uses month-over-month growth (`mart_growth_revisions`), not levels.
+
+Coverage assumption: the vintage table plus live captures cover every monthly GDP release since 2015-03 without gaps (table ends with the 2026-09-29 release; live capture starts with the 2026-10-30 release).
+
 ## Open items
 
-- Inspect 36-10-0491 dimensions and size; decide whether to backfill GDP from it.
 - Confirm whether FX data may be republished.
 - Read the WDS appendix on status/symbol codes (e.g. revised flags) and correction fields.

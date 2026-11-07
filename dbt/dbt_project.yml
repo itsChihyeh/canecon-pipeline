@@ -1,0 +1,19 @@
+name: canecon
+version: "0.1.0"
+config-version: 2
+profile: canecon
+
+model-paths: ["models"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  canecon:
+    staging:
+      +materialized: view
+    vintages:
+      +materialized: table
+    marts:
+      +materialized: table
