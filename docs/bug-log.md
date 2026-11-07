@@ -34,3 +34,9 @@ Details and the run output: [reliability.md](reliability.md).
 - **Symptom:** the export test builds a warehouse with dbt and then exports it. The export could not open the freshly built file, and copying the file first also failed on Windows because the file was still in use. The exact error text was not kept.
 - **Cause:** dbt, run in the same test process, keeps its connection to the DuckDB file open after the build; Windows does not let another handle copy a file held open that way.
 - **Fix:** the test copies the data inside DuckDB instead of copying the file (`copy from database wh to wh_copy`, `tests/test_export.py`) and exports from the copy. In the pipeline the export runs as its own process, so the problem does not arise there.
+
+## 5. Mixed precisions could hide a revision (found in review, 2026-11-07)
+
+- **Symptom:** none in the real data. A code review asked what happens when releases of the same month use different numbers of decimals. A hand-built case showed it: 100.24, then 100.2 (one decimal), then 100.16 gave one vintage instead of two.
+- **Cause:** `vintages.sql` compared each observation with the observation just before it (`LAG`). 100.2 matches 100.24 at one decimal, and 100.16 matches 100.2 at one decimal, so the change from 100.24 to 100.16 was never compared directly.
+- **Fix:** a recursive CTE carries the last value kept as a vintage and compares each new observation with it. Test: `test_mixed_precision_compares_with_last_kept_vintage`, which failed before the fix. Rebuilding from the `data` snapshots at `53f8060` gave the same 2,968 vintages as before the fix.

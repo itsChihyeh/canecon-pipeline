@@ -41,7 +41,7 @@ Times are UTC. Three times are kept apart everywhere:
 | `source_snapshot_sha256`, `source_object_path` | lineage to the raw response |
 | `observed_from` | earliest time we can vouch for the value (publication time for official vintage tables, capture time for live data) |
 
-A new vintage starts only if the value differs from the previous one after rounding both to the coarser precision, so changes in scale factor or decimals are not revisions.
+A new vintage starts only if the value differs from the last vintage kept after rounding both to the coarser precision, so changes in scale factor or decimals are not revisions.
 
 ## marts
 

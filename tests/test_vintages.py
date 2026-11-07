@@ -64,11 +64,31 @@ BOC_OK = json.dumps({"observations": [{"d": "2026-01-09", "V39079": {"v": "2.50"
 
 RUNS = [
     ("2026-01-10T15:00:00Z", statcan_body("2026-01-09T08:30", [("2025-11-01", 100.0, 6, 0)]), 200),
-    ("2026-02-10T15:00:00Z", statcan_body("2026-02-09T08:30", [("2025-11-01", 101.0, 6, 0), ("2025-12-01", 200.0, 6, 0)]), 200),
-    ("2026-03-10T15:00:00Z", statcan_body("2026-03-09T08:30", [("2025-11-01", 100.0, 6, 0), ("2025-12-01", 200.0, 6, 0)]), 200),
-    ("2026-03-11T15:00:00Z", statcan_body("2026-03-09T08:30", [("2025-11-01", 100.0, 6, 0), ("2025-12-01", 200.0, 6, 0)]), 200),
-    ("2026-04-10T15:00:00Z", statcan_body("2026-04-09T08:30", [("2025-11-01", 0.1, 9, 1), ("2025-12-01", 200.0, 6, 1)]), 200),
-    ("2026-05-10T15:00:00Z", statcan_body("2026-05-08T08:30", [("2025-11-01", 999.0, 6, 0), ("2025-12-01", 999.0, 6, 0)]), 503),
+    (
+        "2026-02-10T15:00:00Z",
+        statcan_body("2026-02-09T08:30", [("2025-11-01", 101.0, 6, 0), ("2025-12-01", 200.0, 6, 0)]),
+        200,
+    ),
+    (
+        "2026-03-10T15:00:00Z",
+        statcan_body("2026-03-09T08:30", [("2025-11-01", 100.0, 6, 0), ("2025-12-01", 200.0, 6, 0)]),
+        200,
+    ),
+    (
+        "2026-03-11T15:00:00Z",
+        statcan_body("2026-03-09T08:30", [("2025-11-01", 100.0, 6, 0), ("2025-12-01", 200.0, 6, 0)]),
+        200,
+    ),
+    (
+        "2026-04-10T15:00:00Z",
+        statcan_body("2026-04-09T08:30", [("2025-11-01", 0.1, 9, 1), ("2025-12-01", 200.0, 6, 1)]),
+        200,
+    ),
+    (
+        "2026-05-10T15:00:00Z",
+        statcan_body("2026-05-08T08:30", [("2025-11-01", 999.0, 6, 0), ("2025-12-01", 999.0, 6, 0)]),
+        503,
+    ),
 ]
 
 
@@ -213,4 +233,47 @@ def test_growth_revision_path_follows_each_release(warehouse):
         (1, "2026-02-09 13:30:00", 98.0198, 0.0, 1.9802),
         (2, "2026-03-09 12:30:00", 100.0, 1.9802, 0.0),
         (3, "2026-04-09 12:30:00", 100.0, 1.9802, 0.0),
+    ]
+
+
+# Mixed precision: each release is compared with the last value kept as a vintage, not with
+# the observation just before it. Nov (millions):
+#   Jan 9: 100.24 (2 decimals) -> vintage 1
+#   Feb 9: 100.2  (1 decimal)  -> same as 100.24 at one decimal, no new vintage
+#   Mar 9: 100.16 (2 decimals) -> differs from 100.24 at two decimals: vintage 2.
+#          (Compared only with Feb's 100.2 at one decimal it would look unchanged.)
+#   Apr 9: 100.2  (1 decimal)  -> same as 100.16 at one decimal, no new vintage
+PRECISION_RUNS = [
+    ("2026-01-10T15:00:00Z", statcan_body("2026-01-09T08:30", [("2025-11-01", 100.24, 6, 2)])),
+    ("2026-02-10T15:00:00Z", statcan_body("2026-02-09T08:30", [("2025-11-01", 100.2, 6, 1)])),
+    ("2026-03-10T15:00:00Z", statcan_body("2026-03-09T08:30", [("2025-11-01", 100.16, 6, 2)])),
+    ("2026-04-10T15:00:00Z", statcan_body("2026-04-09T08:30", [("2025-11-01", 100.2, 6, 1)])),
+]
+
+
+@pytest.fixture(scope="module")
+def precision_warehouse(tmp_path_factory):
+    tmp = tmp_path_factory.mktemp("precision")
+    store = RawStore(tmp / "raw")
+    reqs = [r for r in daily_requests() if r.request_id in ("statcan_vectors_latest", "boc_observations_recent")]
+    for captured, body in PRECISION_RUNS:
+
+        def handler(request: httpx.Request, body=body) -> httpx.Response:
+            return httpx.Response(200, content=BOC_OK if "valet" in str(request.url) else body)
+
+        client = httpx.Client(transport=httpx.MockTransport(handler))
+        run_collection(store, reqs, client, sleep=lambda _: None, now=lambda c=captured: c)
+    db = tmp / "wh.duckdb"
+    load(tmp / "raw", db)
+    assert run_dbt(db, exclude="tag:quality"), "dbt build (models + data tests) failed"
+    con = duckdb.connect(str(db))
+    yield con
+    con.close()
+
+
+def test_mixed_precision_compares_with_last_kept_vintage(precision_warehouse):
+    rows = gdp_vintages(precision_warehouse, "2025-11-01")
+    assert [(n, round(float(v)), f, t) for n, v, f, t in rows] == [
+        (1, 100_240_000, "2026-01-09 13:30:00", "2026-03-09 12:30:00"),
+        (2, 100_160_000, "2026-03-09 12:30:00", None),
     ]
