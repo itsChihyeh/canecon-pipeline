@@ -1,0 +1,26 @@
+# Private planning notes (contain personal job-search context; never publish)
+docs/brief.md
+private/
+
+# Secrets and local environment
+.env
+.env.*
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Local data and build outputs
+*.duckdb
+*.duckdb.wal
+data/local/
+target/
+dbt_packages/
+logs/
+node_modules/
+build/
+.evidence/
