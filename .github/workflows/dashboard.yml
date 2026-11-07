@@ -63,6 +63,16 @@ jobs:
           npm run sources:strict
           npm run build:strict
 
+      # dbt's model documentation and lineage graph, served at /dbt-docs/. Column metadata
+      # and SQL only, no data values.
+      - name: Add dbt docs and lineage graph
+        env:
+          CANECON_DB: ${{ github.workspace }}/warehouse.duckdb
+        run: |
+          uv run dbt docs generate --static --project-dir dbt --profiles-dir dbt --quiet
+          mkdir -p dashboard/build/dbt-docs
+          cp dbt/target/static_index.html dashboard/build/dbt-docs/index.html
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dashboard/build

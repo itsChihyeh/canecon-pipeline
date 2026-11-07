@@ -12,7 +12,7 @@ Short answer, for GDP only:
 ## Data and method
 
 - GDP: Statistics Canada Table 36-10-0434-01 (all industries, SAAR, chained dollars), vector v65201210. Revision history from Table 36-10-0491-01 (real-time releases, 140 releases from 2015-03-03 to 2026-09-29), plus our daily captures from 2026-11-07 (first live release: 2026-10-30).
-- Growth, not levels: levels in the vintage table jump when Statistics Canada changes the base year of chained dollars (December 2018 and December 2023 releases), so level revisions mix definitional and economic changes. Month-over-month growth is comparable across base years.
+- Growth, not levels: levels in the vintage table jump when Statistics Canada changes the base year of chained dollars (the 30 November 2018 and 30 November 2023 releases), so level revisions mix definitional and economic changes. Month-over-month growth is comparable across base years.
 - *First-release growth* uses this month and the previous month as both were known at the first release (`mart_growth_revisions`). *Latest growth* uses today's values. Revision = latest − first, in percentage points (pp).
 - *Settling* uses `mart_growth_revision_path`: the growth of each month as known at every later release. It is restricted to months whose first release is at least 36 months before the latest month in the data (January 2015 to August 2023, 104 months), because the latest estimate of recent months is not settled either.
 - Months first released before our coverage starts (before the 2015-03-03 release) are excluded, since their first value is unknown.

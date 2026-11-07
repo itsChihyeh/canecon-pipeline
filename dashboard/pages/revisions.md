@@ -16,6 +16,34 @@ group by all order by n_revisions desc, s.label
 select * from canecon.build_info
 ```
 
+## Example: real GDP for July 2021
+
+```sql example
+select v.vintage_number,
+       v.value / 1e9 as value_billions,
+       v.revision_from_previous / 1e9 as revision_billions,
+       v.valid_from as published_at,
+       left(v.source_snapshot_sha256, 12) as snapshot,
+       b.snapshot_base_url || v.source_object_path as snapshot_url
+from canecon.vintages v cross join canecon.build_info b
+where v.series_id = 'gdp_all_industries' and v.ref_period = '2021-07-01'
+order by v.vintage_number
+```
+
+Each row is one published value of the same month, in billions of chained (2017) dollars, SAAR. Its growth
+over June was first published as a decline and is now a clear increase (see the [home page](/)). The jump at
+the 30 November 2023 release is a change of base year for chained dollars, not an economic revision.
+
+<DataTable data={example} rows=25>
+  <Column id=vintage_number title="Vintage" />
+  <Column id=value_billions title="Value" fmt='#,##0.000' />
+  <Column id=revision_billions title="Change vs previous" fmt='#,##0.000' />
+  <Column id=published_at title="Published (UTC)" fmt='yyyy-mm-dd' />
+  <Column id=snapshot_url title="Raw snapshot" contentType=link linkLabel=snapshot openInNewTab=true />
+</DataTable>
+
+## Explore any series and month
+
 <Dropdown name=series data={series_list} value=series_id label=label defaultValue="gdp_all_industries" title="Series" />
 
 ```sql periods
@@ -29,10 +57,18 @@ order by ref_period desc
 
 <Dropdown name=period data={periods} value=period_key label=period_label title="Reference period" />
 
+```sql scale
+select case when max(abs(value)) >= 1e9 then 1e9 when max(abs(value)) >= 1e6 then 1e6 else 1 end as divisor,
+       case when max(abs(value)) >= 1e9 then 'billions of ' when max(abs(value)) >= 1e6 then 'millions of ' else '' end
+         || (select unit from canecon.series where series_id = '${inputs.series.value}') as unit_label
+from canecon.vintages
+where series_id = '${inputs.series.value}'
+```
+
 ```sql history
 select v.vintage_number,
-       v.value,
-       v.revision_from_previous,
+       v.value / (select divisor from ${scale}) as value_shown,
+       v.revision_from_previous / (select divisor from ${scale}) as revision_shown,
        100 * v.revision_from_previous / lag(v.value) over (order by v.vintage_number) as revision_pct,
        v.valid_from as published_at,
        v.first_seen_at,
@@ -48,8 +84,8 @@ order by v.vintage_number
 
 <DataTable data={history} rows=50>
   <Column id=vintage_number title="Vintage" />
-  <Column id=value title="Value" fmt='#,##0.00' />
-  <Column id=revision_from_previous title="Change vs previous" fmt='#,##0.00' />
+  <Column id=value_shown title="Value" fmt='#,##0.000' />
+  <Column id=revision_shown title="Change vs previous" fmt='#,##0.000' />
   <Column id=revision_pct title="Change %" fmt='0.000' />
   <Column id=published_at title="Published (UTC)" fmt='yyyy-mm-dd H:MM' />
   <Column id=first_seen_at title="First captured (UTC)" fmt='yyyy-mm-dd H:MM' />
@@ -57,13 +93,13 @@ order by v.vintage_number
   <Column id=snapshot_url title="Raw snapshot" contentType=link linkLabel=snapshot openInNewTab=true />
 </DataTable>
 
-Values are in base units (dollars, percent or index points). *Published* is the official release time.
+Values for this series are in <Value data={scale} column=unit_label />. *Published* is the official release time.
 For GDP before 2026-10-30 it comes from the official vintage table 36-10-0491; Bank of Canada series have no
 release time in the API, so *published* is our capture time. *Raw snapshot* opens the stored API response
 on the `data` branch; its file name is the SHA-256 of its content.
 
-GDP levels jump when Statistics Canada changes the base year of chained dollars (December 2018 and
-December 2023 releases), so level changes are not all economic revisions. The analysis below uses growth rates.
+GDP levels jump when Statistics Canada changes the base year of chained dollars (the 30 November 2018
+and 30 November 2023 releases), so level changes are not all economic revisions. The analysis below uses growth rates.
 
 ## GDP growth: first release vs now
 

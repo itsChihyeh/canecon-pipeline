@@ -1,12 +1,16 @@
 # CanEcon Vintage Pipeline
 
+[![CI](https://github.com/itsChihyeh/canecon-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/itsChihyeh/canecon-pipeline/actions/workflows/ci.yml) [![Daily collect](https://github.com/itsChihyeh/canecon-pipeline/actions/workflows/collect.yml/badge.svg?event=schedule)](https://github.com/itsChihyeh/canecon-pipeline/actions/workflows/collect.yml?query=event%3Aschedule) [![Dashboard](https://github.com/itsChihyeh/canecon-pipeline/actions/workflows/dashboard.yml/badge.svg)](https://github.com/itsChihyeh/canecon-pipeline/actions/workflows/dashboard.yml)
+
 A scheduled Python + SQL pipeline that collects official Canadian economic data (Statistics Canada, Bank of Canada), keeps every published vintage, tracks revisions and lineage from raw API response to dashboard, and publishes a public dashboard.
 
-**Live dashboard:** https://itschihyeh.github.io/canecon-pipeline/ · **Analysis:** [docs/analysis.md](docs/analysis.md) · **Demo script:** [docs/demo-script.md](docs/demo-script.md)
+**Live dashboard:** https://itschihyeh.github.io/canecon-pipeline/ · **dbt docs and lineage:** [dbt-docs](https://itschihyeh.github.io/canecon-pipeline/dbt-docs/) · **Analysis:** [docs/analysis.md](docs/analysis.md) · **Demo script:** [docs/demo-script.md](docs/demo-script.md)
 
 ## The problem
 
 Official figures are revised after they are first published. Canada's monthly GDP growth for July 2021 was first reported as a 0.06% decline; it now shows a 0.68% increase. A table that keeps only the latest value cannot say what was known on a given day, or how far first releases move.
+
+![July 2021 GDP growth as published at each release: -0.06% at first, 0.68% today](docs/img/july-2021-gdp.png)
 
 This pipeline keeps every published value of every month (a *vintage*), with three separate times: the period it describes, when the source published it, and when we captured it. It answers:
 
@@ -28,14 +32,15 @@ flowchart LR
 
 - **Collect** (GitHub Actions, 15:00 UTC daily): 3 requests cover 7 series. Retries with backoff; a run is `success` only if every request succeeded.
 - **Raw layer**: each response stored once under its SHA-256 on the `data` branch, with a manifest of URL, parameters, capture time and status. Reruns add nothing new when the bytes are the same.
-- **Model**: the DuckDB warehouse is rebuilt from the snapshots each time. dbt finds revisions with window functions, ignoring changes of scale or decimals, and computes revision marts and 23 data quality checks (26 before USD/CAD was dropped). An error-level check fails the build.
+- **Model**: the DuckDB warehouse is rebuilt from the snapshots each time. dbt finds revisions with window functions, ignoring changes of scale or decimals, and computes revision marts and 23 data quality checks. An error-level check fails the build. A new vintage starts only when a value differs from the last vintage kept, so a release with fewer decimals cannot hide a later revision.
 - **History**: GDP revisions since 2015 come from Statistics Canada's real-time table 36-10-0491 (140 releases); other series accumulate from 2026-11-07.
 - **Dashboard**: only series cleared for publication are exported; the static site is rebuilt after every collection.
-- **Extensions** ([docs/extensions.md](docs/extensions.md)): a monthly brief where every number a language model writes must cite one series, period and measure and is checked against the warehouse (DeepSeek; 34 of 34 monthly briefs passed on the first try in a live run, about $0.04; template fallback), a scikit-learn walk-forward baseline for the direction of GDP revisions (no reliable edge found), and the pipeline as Dagster assets with a quality asset check.
+- **Code checks**: pytest, ruff (lint and format) and mypy run in CI on every push.
+- **Extensions** ([docs/extensions.md](docs/extensions.md)): a language-model monthly brief in which every number must cite a series, period and measure and is checked against the warehouse (34 of 34 briefs passed on the first try in a live run, about $0.04 in total); a scikit-learn baseline for the direction of GDP revisions (no reliable edge found); the pipeline as Dagster assets.
 
 More: [architecture](docs/architecture.md) · [extensions](docs/extensions.md) · [design decisions](docs/design-decisions.md) · [reliability](docs/reliability.md) · [data dictionary](docs/data-dictionary.md) · [sources and terms](docs/sources.md) · [bug log](docs/bug-log.md) · [how this was built](docs/how-this-was-built.md)
 
-Stack: Python 3.12, httpx, DuckDB, dbt (dbt-duckdb), SQL, pytest, GitHub Actions, Evidence. Extensions: scikit-learn, Dagster.
+Stack: Python 3.12, httpx, DuckDB, dbt (dbt-duckdb), SQL, pytest, ruff, mypy, GitHub Actions, Evidence. Extensions: scikit-learn, Dagster, DeepSeek API.
 
 ## Run it
 

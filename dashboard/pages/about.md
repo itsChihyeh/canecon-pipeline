@@ -49,7 +49,7 @@ Interest-rate data (target for the overnight rate, 2-year and 10-year benchmark 
 [Bank of Canada](https://www.bankofcanada.ca/terms/), via the Valet API. Values are shown as published, rounded
 in charts and tables; growth and change figures are computed here. This site is not endorsed by the Bank of Canada.
 
-The USD/CAD exchange rate is collected by the pipeline but not shown. The Bank of Canada notes that its exchange
+The USD/CAD exchange rate is not shown and, since 2026-11-07, no longer collected. The Bank of Canada notes that its exchange
 rate data comes from LSEG, and its terms say third-party content is not licensed for reuse unless stated.
 
 ## How to read the numbers
@@ -59,5 +59,6 @@ rate data comes from LSEG, and its terms say third-party content is not licensed
 - Bank of Canada series have no release time in the API, so their *published* time is our capture time.
 - Growth rates and 12-month changes are computed here from published levels.
 - Revision history for series other than GDP starts with our first capture on 2026-11-07.
-- Models and columns: [data dictionary](https://github.com/itsChihyeh/canecon-pipeline/blob/main/docs/data-dictionary.md).
+- Models and columns: [data dictionary](https://github.com/itsChihyeh/canecon-pipeline/blob/main/docs/data-dictionary.md);
+  the generated [dbt docs and lineage graph](https://itschihyeh.github.io/canecon-pipeline/dbt-docs/).
   Failure handling and checks: [reliability](https://github.com/itsChihyeh/canecon-pipeline/blob/main/docs/reliability.md).

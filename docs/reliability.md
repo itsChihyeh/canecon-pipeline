@@ -132,7 +132,7 @@ Checked 2026-11-07:
 - Official: "In a public repository, scheduled workflows are automatically disabled when no repository activity has occurred in 60 days." ([Disabling and enabling a workflow](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/disable-and-enable-workflows)). The docs do not define "activity".
 - Not official: community answers (e.g. [Stack Overflow 67184368](https://stackoverflow.com/questions/67184368/prevent-scheduled-github-actions-from-becoming-disabled)) report that only commits to the default branch count. If so, the bot's daily commits to the `data` branch do not keep the schedule alive.
 
-Mitigation, not yet verified: every run of `Daily collect` calls `gh workflow enable collect.yml`. Whether re-enabling an active workflow resets the 60-day timer is not documented either. Backstops: the owner's commits to `main`; the state can be checked with
+Mitigation, not yet verified: every run of `Daily collect` calls `gh workflow enable collect.yml`. In the first scheduled run (42405248838, 2026-11-07 19:14 UTC) the step ran without a warning, so the token has the permission it needs, and the workflow state was `active` afterwards. Whether re-enabling an active workflow resets the 60-day timer is not documented, and can only be seen after 60 days without commits to `main`. Backstops: the owner's commits to `main`; the state can be checked with
 
 ```bash
 gh api repos/itsChihyeh/canecon-pipeline/actions/workflows/collect.yml --jq .state

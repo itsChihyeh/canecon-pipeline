@@ -46,7 +46,7 @@ flowchart LR
 **Warehouse** (`src/canecon/load.py`, `build.py`, `dbt/`). `canecon-build` creates a fresh DuckDB file from the raw layer every time, so the warehouse is a pure function of the snapshots. The loader reads only captures that belong to `success` runs. dbt then runs:
 
 - `stg_observations`: typed values, `value_scaled = value x 10^scalar_factor`, and `precision_step`, the smallest change the source can express.
-- `vintages`: one row per distinct published value of (series, reference period). `LAG` over (series, period) ordered by publication then capture time finds changes; values are compared after rounding to the coarser precision, so a change of scale factor or decimals is not a revision. Each vintage carries `valid_from` / `valid_to` and the hash of the snapshot it came from.
+- `vintages`: one row per distinct published value of (series, reference period). A recursive CTE walks each (series, period) in order of publication then capture time and carries the last value kept; a value starts a new vintage only if it differs from that one after rounding both to the coarser precision, so a change of scale factor or decimals is not a revision. `LEAD` then sets the validity intervals. Each vintage carries `valid_from` / `valid_to` and the hash of the snapshot it came from.
 - marts: latest value, first release, level and growth revisions, the growth of each month at every later release, collection coverage per day, freshness, and `mart_quality_checks`.
 
 dbt tests (`dbt/tests/` plus schema tests in the `.yml` files) check that vintage intervals of a period do not overlap, that consecutive vintages really differ, that every lineage hash has a raw object, that every series is catalogued and documented, and that no quality check is at error level (which fails the build).
@@ -59,9 +59,9 @@ dbt tests (`dbt/tests/` plus schema tests in the `.yml` files) check that vintag
 
 | Workflow | Trigger | Does |
 |---|---|---|
-| `CI` | every push to `main`, pull requests | `uv sync --locked`, `pytest` |
+| `CI` | every push to `main`, pull requests | `uv sync --locked`, `ruff check`, `ruff format --check`, `mypy`, `pytest` |
 | `Daily collect` | 15:00 UTC daily, or by hand (`daily`, `catchup`, `backfill_gdp`) | collect, commit new snapshots to `data`, rebuild the warehouse and run the checks; the job fails if a request or an error-level check failed |
-| `Dashboard` | after `Daily collect`, on dashboard/model/code pushes, or by hand | rebuild from `data`, export, build the Evidence site, deploy to Pages |
+| `Dashboard` | after `Daily collect`, on dashboard/model/code pushes, or by hand | rebuild from `data`, export, build the Evidence site and the dbt docs (`/dbt-docs/`), deploy to Pages |
 
 ## Lineage of one number
 

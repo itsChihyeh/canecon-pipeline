@@ -26,15 +26,16 @@ Each entry: what was chosen, what else was possible, and why. "Would change if" 
 
 ## 4. Revisions compared after rounding to the coarser precision
 
-- **Chosen:** a new vintage starts only if the value differs from the previous one after both are rounded to the larger of their two precisions (`10^(scalar_factor - decimals)`).
+- **Chosen:** a new vintage starts only if the value differs from the last vintage kept after both are rounded to the larger of their two precisions (`10^(scalar_factor - decimals)`).
 - **Alternatives:** compare raw numbers; compare with a fixed tolerance.
 - **Why:** StatCan reports a value together with a scale factor (GDP in millions, retail in thousands) and a number of decimals, and series use different ones. If a release re-expressed the same number with another scale or fewer decimals, a raw comparison would count it as a revision, and a fixed tolerance would be wrong for some units. Rounding to what both releases could express handles each pair exactly. This case has not been seen in the real data so far; it is covered by a hand-built test (`test_scale_and_decimal_changes_are_not_revisions`).
+- **Compared with the last kept vintage, not the previous observation:** with mixed precisions, comparing neighbours can miss a revision. 100.24, then 100.2 (one decimal: same), then 100.16 is a revision of 100.24, but 100.16 and 100.2 agree at one decimal. The first version compared neighbours; this was found in a review on 2026-11-07, reproduced by `test_mixed_precision_compares_with_last_kept_vintage` and fixed with a recursive CTE that carries the last kept value. On the real data the vintages were the same before and after the fix ([bug-log.md](bug-log.md), entry 5).
 
 ## 5. Growth rates, not levels, for the revision analysis
 
 - **Chosen:** measure GDP revisions as changes in month-over-month growth (percentage points).
 - **Alternative:** revisions of the level (chained dollars).
-- **Why:** Statistics Canada changed the base year of chained dollars twice in the period (December 2018 and December 2023 releases), which shifts every level at once. Level revisions mix that definitional change with real revisions. Growth rates are comparable across base years. First-release growth uses the previous month as it was known at the same release, so it does not peek at later data.
+- **Why:** Statistics Canada changed the base year of chained dollars twice in the period (the 30 November 2018 and 30 November 2023 releases), which shifts every level at once. Level revisions mix that definitional change with real revisions. Growth rates are comparable across base years. First-release growth uses the previous month as it was known at the same release, so it does not peek at later data.
 
 ## 6. Open-source Evidence with an export step, and the publication boundary in the export
 

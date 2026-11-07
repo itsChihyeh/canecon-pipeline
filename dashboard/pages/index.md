@@ -1,5 +1,5 @@
 ---
-title: Canadian macro overview
+title: Canadian economic data, every published version
 ---
 
 ```sql build
@@ -84,8 +84,53 @@ select * from canecon.series where series_id = 'gov_bond_yield_2y'
 select * from canecon.series where series_id = 'gov_bond_yield_10y'
 ```
 
-Latest official figures for Canada, rebuilt every day from the raw API responses the pipeline keeps.
-Every value can be traced to the exact snapshot it came from (see [Revision explorer](/revisions)).
+```sql jul2021
+select released_at, growth_pct
+from canecon.growth_revision_path
+where series_id = 'gdp_all_industries' and ref_period = '2021-07-01'
+order by release_number
+```
+
+```sql jul2021_ends
+select
+    max(case when release_number = 1 then growth_pct end) as first_pct,
+    arg_max(growth_pct, release_number) as latest_pct,
+    count(*) - 1 as later_releases
+from canecon.growth_revision_path
+where series_id = 'gdp_all_industries' and ref_period = '2021-07-01'
+```
+
+```sql gdp_revision_summary
+select count(*) as months,
+       avg(abs(growth_revision_pp)) as mean_abs_revision_pp,
+       100 * avg(case when sign(first_growth_pct) = sign(latest_growth_pct) then 1 else 0 end) as same_sign_pct
+from canecon.growth_revisions
+where series_id = 'gdp_all_industries'
+```
+
+Official economic figures change after they are first published. This pipeline collects Statistics Canada
+and Bank of Canada data every day and keeps **every published value**, with when it was published, when it
+was captured and the raw API response it came from. It can answer what was known on any past day, and how far
+first releases move.
+
+## Example: Canada's GDP growth for July 2021
+
+First published as <Value data={jul2021_ends} column=first_pct fmt='0.00"%"' />, a small decline. After <Value data={jul2021_ends} column=later_releases /> later GDP releases it stands at <Value data={jul2021_ends} column=latest_pct fmt='0.00"%"' />, a clear increase. A table that keeps only the latest value cannot show this.
+
+<LineChart data={jul2021} x=released_at y=growth_pct step=true yAxisTitle="July 2021 m/m growth as published, %" yFmt='0.00' xAxisTitle="release date" />
+
+<BigValue data={gdp_revision_summary} value=months title="GDP months compared" />
+<BigValue data={gdp_revision_summary} value=mean_abs_revision_pp title="Mean revision, first release to now (pp)" fmt='0.00' />
+<BigValue data={gdp_revision_summary} value=same_sign_pct title="First release had the right sign (%)" fmt='0' />
+
+Explore any month in the [Revision explorer](/revisions), check what was known on a past date in
+[Point in time](/as-of), see the [analysis](https://github.com/itsChihyeh/canecon-pipeline/blob/main/docs/analysis.md)
+and its limits, or browse the [dbt models and lineage graph](https://itschihyeh.github.io/canecon-pipeline/dbt-docs/).
+Code: [GitHub](https://github.com/itsChihyeh/canecon-pipeline).
+
+## Latest figures
+
+Rebuilt every day from the raw API responses the pipeline keeps.
 Built <Value data={build} column=built_at fmt='yyyy-mm-dd H:MM' /> UTC.
 
 <BigValue data={gdp_last} value=mom_growth_pct title="Real GDP, m/m growth (%)" fmt='0.00' comparisonTitle="" />
@@ -97,37 +142,37 @@ unemployment <Value data={unemployment_last} column=ref_period fmt='mmm yyyy' />
 CPI <Value data={cpi_last} column=ref_period fmt='mmm yyyy' />.
 Growth rates are computed here from the published levels; they are not official headline figures.
 
-## Real GDP
+### Real GDP
 
 <LineChart data={gdp} x=ref_period y=gdp_trillions yMin=1.6 yAxisTitle="trillions of chained (2017) dollars, SAAR" yFmt='0.00' />
 
 <SeriesNote data={info_gdp} note="Shown from 2015 at current (latest) estimates." />
 
-## Real GDP, month-over-month growth
+### Real GDP, month-over-month growth
 
 <BarChart data={gdp} x=ref_period y=mom_growth_pct yAxisTitle="percent" yFmt='0.0' />
 
 <SeriesNote data={info_gdp} note="Growth = this month / previous month - 1, from the latest estimates." />
 
-## Retail sales
+### Retail sales
 
 <LineChart data={retail} x=ref_period y=retail_billions yAxisTitle="billions of dollars, SA" yFmt='0.0' />
 
 <SeriesNote data={info_retail} note="The API serves the latest 36 months." />
 
-## Unemployment rate
+### Unemployment rate
 
 <LineChart data={unemployment} x=ref_period y=unemployment_rate yAxisTitle="percent" yFmt='0.0' />
 
 <SeriesNote data={info_unemployment} note="The API serves the latest 36 months." />
 
-## CPI inflation
+### CPI inflation
 
 <LineChart data={cpi} x=ref_period y=cpi_yoy_pct yAxisTitle="percent, 12-month change" yFmt='0.0' />
 
 <SeriesNote data={info_cpi} note="12-month change = index / index 12 months earlier - 1, computed here." />
 
-## Interest rates
+### Interest rates
 
 <DataTable data={rates_last}>
   <Column id=label title="Series" />
@@ -143,6 +188,6 @@ Daily series cover the latest 30 business days the API serves; history grows as 
 <SeriesNote data={info_2y} />
 <SeriesNote data={info_10y} />
 
-The USD/CAD exchange rate is collected but not shown: the Bank of Canada sources it from LSEG, and whether it may be republished here is still being checked.
+The USD/CAD exchange rate is not shown: the Bank of Canada sources it from LSEG, whose terms do not license it for reuse, so it is no longer collected.
 
 <Attribution />

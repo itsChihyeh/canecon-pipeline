@@ -5,7 +5,7 @@ About 8 minutes. Part A needs only a browser. Part B needs a clone with `uv sync
 ## A. Dashboard (browser, 3 minutes)
 
 1. **Problem.** Open https://itschihyeh.github.io/canecon-pipeline/. "Official numbers change after they are published. Most data projects keep only the latest value; this pipeline keeps every published value, with when it was published, when we saw it, and the raw response it came from."
-2. **A revision.** Open *Revision explorer*, series *Real GDP*, period *2021-07-01*. It has 18 vintages. Growth for July 2021 was first published on 2021-10-01 as −0.06%, then −0.09% at the next release, +0.32% at the one after, and is +0.68% today: a reported decline became a clear increase.
+2. **A revision.** The home page opens with it, and *Revision explorer* lists its 18 vintages at the top (or pick series *Real GDP*, period *2021-07-01* in the explorer below). Growth for July 2021 was first published on 2021-10-01 as −0.06%, then −0.09% at the next release, +0.32% at the one after, and is +0.68% today: a reported decline became a clear increase.
 3. **Lineage.** In the same table, click the raw snapshot link of a vintage. It opens the exact API response on the `data` branch, named by its SHA-256.
 4. **No look-ahead.** Open *Point in time*, pick a month-end in 2021 or 2020. The table shows what was known on that day next to today's value. The same rule is `canecon.pit.as_of`: a vintage counts only if `valid_from <= T < valid_to`.
 5. **Result.** Back on *Revision explorer*: across 140 months, first-release GDP growth moved 0.15 percentage points on average by today, and the first release had the right sign in 86% of months. Details and limits: [analysis.md](analysis.md).
