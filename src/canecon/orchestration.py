@@ -118,9 +118,9 @@ def monthly_brief(paths: PipelinePaths) -> MaterializeResult:
     month = f"{d.year - (d.month == 1)}-{(d.month - 2) % 12 + 1:02d}"
     generator = None
     if paths.brief_model:
-        from canecon.brief import AnthropicGenerator
+        from canecon.brief import DeepSeekGenerator
 
-        generator = AnthropicGenerator(paths.brief_model)
+        generator = DeepSeekGenerator(paths.brief_model)
     con = duckdb.connect(paths.db, read_only=True)
     try:
         result = write_brief(con, month, as_of_utc, generator)

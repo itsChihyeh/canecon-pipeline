@@ -233,7 +233,10 @@ def write_brief(con: duckdb.DuckDBPyConnection, month: str, as_of_utc: str, gene
                 attempts.append({"attempt": n, "error": f"{type(exc).__name__}: {exc}"})
                 break
             check = verify(draft, facts)
-            attempts.append({"attempt": n, "draft": draft, "checked": check.checked, "problems": check.problems})
+            attempt = {"attempt": n, "draft": draft, "checked": check.checked, "problems": check.problems}
+            if getattr(generator, "last_usage", None):
+                attempt["usage"] = generator.last_usage
+            attempts.append(attempt)
             if check.ok:
                 return BriefResult(month, as_of_utc, "llm_verified", render(draft), attempts, fact_dicts, generator.name)
             problems = check.problems
@@ -243,25 +246,38 @@ def write_brief(con: duckdb.DuckDBPyConnection, month: str, as_of_utc: str, gene
     )
 
 
-class AnthropicGenerator:
-    """Claude via the official SDK. Needs ANTHROPIC_API_KEY and the `ai` dependency group."""
+class DeepSeekGenerator:
+    """DeepSeek's chat API through the OpenAI SDK (DeepSeek's API is OpenAI-compatible).
 
-    def __init__(self, model: str) -> None:
-        import anthropic  # optional dependency
+    Needs DEEPSEEK_API_KEY and the `ai` extra (`uv sync --extra ai`). Token usage of the last
+    call is kept in `last_usage` so the cost of every brief can be counted.
+    """
 
-        self.client = anthropic.Anthropic()
+    BASE_URL = "https://api.deepseek.com"
+
+    def __init__(self, model: str = "deepseek-flash", api_key: str | None = None, http_client=None) -> None:
+        import os
+
+        from openai import OpenAI  # optional dependency
+
+        key = api_key or os.environ.get("DEEPSEEK_API_KEY")
+        if not key:
+            raise RuntimeError("DEEPSEEK_API_KEY is not set")
+        self.client = OpenAI(api_key=key, base_url=self.BASE_URL, http_client=http_client, max_retries=2)
         self.model = model
-        self.name = f"anthropic:{model}"
+        self.name = f"deepseek:{model}"
+        self.last_usage: dict | None = None
 
     def __call__(self, prompt: str) -> str:
-        response = self.client.messages.create(
+        response = self.client.chat.completions.create(
             model=self.model,
-            max_tokens=2000,
             messages=[{"role": "user", "content": prompt}],
+            reasoning_effort="low",
+            extra_body={"thinking": {"type": "enabled"}},
         )
-        if response.stop_reason == "refusal":
-            raise RuntimeError("model refused")
-        return "".join(block.text for block in response.content if block.type == "text")
+        u = response.usage
+        self.last_usage = None if u is None else {"prompt_tokens": u.prompt_tokens, "completion_tokens": u.completion_tokens}
+        return response.choices[0].message.content or ""
 
 
 def months_between(first: str, last: str) -> list[str]:
@@ -277,7 +293,7 @@ def main(argv: list[str] | None = None, make_generator: Callable[[str], Generato
     parser.add_argument("--db", type=Path, default=Path("data/local/warehouse.duckdb"))
     parser.add_argument("--month", required=True, help="YYYY-MM, or FIRST:LAST for a range")
     parser.add_argument("--as-of", help="UTC 'YYYY-MM-DD HH:MM:SS' (default: now)")
-    parser.add_argument("--model", help="Anthropic model id; without it only the template is written")
+    parser.add_argument("--model", help="DeepSeek model, e.g. deepseek-flash; without it only the template is written")
     parser.add_argument("--out", type=Path, default=Path("data/local/briefs"))
     args = parser.parse_args(argv)
 
@@ -286,7 +302,7 @@ def main(argv: list[str] | None = None, make_generator: Callable[[str], Generato
     months = months_between(first, last or first)
     generator = None
     if args.model:
-        generator = (make_generator or AnthropicGenerator)(args.model)
+        generator = (make_generator or DeepSeekGenerator)(args.model)
 
     con = duckdb.connect(str(args.db), read_only=True)
     args.out.mkdir(parents=True, exist_ok=True)
@@ -295,6 +311,9 @@ def main(argv: list[str] | None = None, make_generator: Callable[[str], Generato
         for month in months:
             result = write_brief(con, month, as_of_utc, generator)
             counts[result.status] = counts.get(result.status, 0) + 1
+            for att in result.attempts:
+                for k, v in att.get("usage", {}).items():
+                    counts[k] = counts.get(k, 0) + v
             (args.out / f"{month}.json").write_text(json.dumps(asdict(result), indent=2, default=str), encoding="utf-8")
             print(f"{month}: {result.status} ({len(result.attempts)} attempt(s), {len(result.facts)} facts)")
     finally:

@@ -180,3 +180,33 @@ def test_small_negative_rounds_to_plain_zero():
     from decimal import Decimal
 
     assert f"{_round(Decimal('-0.04'), 1):.1f}" == "0.0"
+
+
+def test_deepseek_generator_request_and_usage(con):
+    """The DeepSeek adapter against a mocked HTTP endpoint: no network, no key needed."""
+    pytest.importorskip("openai")
+    import json as _json
+
+    import httpx
+
+    from canecon.brief import DeepSeekGenerator
+
+    seen = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json={
+            "id": "x", "object": "chat.completion", "created": 0, "model": "deepseek-flash",
+            "choices": [{"index": 0, "finish_reason": "stop", "message": {"role": "assistant", "content": GOOD}}],
+            "usage": {"prompt_tokens": 900, "completion_tokens": 300, "total_tokens": 1200},
+        })
+
+    gen = DeepSeekGenerator("deepseek-flash", api_key="test-key", http_client=httpx.Client(transport=httpx.MockTransport(handler)))
+    result = write_brief(con, "2026-08", AFTER, gen)
+    assert result.status == "llm_verified"
+    assert result.attempts[0]["usage"] == {"prompt_tokens": 900, "completion_tokens": 300}
+    (req,) = seen
+    assert str(req.url) == "https://api.deepseek.com/chat/completions"
+    body = _json.loads(req.content)
+    assert body["model"] == "deepseek-flash" and body["thinking"] == {"type": "enabled"}
+    assert "[[series_id|period|measure|value]]" in body["messages"][0]["content"]

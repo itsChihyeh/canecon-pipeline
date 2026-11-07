@@ -29,6 +29,11 @@ canecon-export = "canecon.export:main"
 canecon-brief = "canecon.brief:main"
 canecon-baseline = "canecon.baseline:main"
 
+[project.optional-dependencies]
+ai = [
+    "openai>=3.46.0",
+]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

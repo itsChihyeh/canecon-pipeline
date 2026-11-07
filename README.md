@@ -43,7 +43,7 @@ Requires [uv](https://docs.astral.sh/uv/). The tests need no network.
 
 ```bash
 uv sync
-uv run pytest -q                 # 58 tests (+3 Dagster tests with --group orchestration)
+uv run pytest -q                 # 58 tests (62 with --group orchestration --extra ai)
 uv run canecon-demo-failure      # offline: injected API failures, retry, partial run, catch-up
 ```
 
@@ -56,7 +56,7 @@ uv run canecon-build --data-dir data/snap/raw --db data/local/warehouse.duckdb
 
 Other commands: `canecon-collect` (one live capture), `canecon-catchup` (fill missed days), `canecon-backfill` (official GDP vintages), `canecon-export` (public tables for the dashboard), `canecon-brief` and `canecon-baseline` (extensions). Dashboard (Node 18+), after `canecon-export`: `cd dashboard && npm ci && npm run sources && npm run dev`.
 
-Checked from a fresh clone on 2026-11-07 (Windows 11, Python 3.12.10, uv 0.11.21, Node 24.17.0): `uv sync --locked`, 40 tests passed (58 passed and 1 skipped after the extensions; 61 with `--group orchestration`), `canecon-build` on `data` commit `53f8060` took about 30 s and passed with one expected warning, and the dashboard built with `npm run build:strict`.
+Checked from a fresh clone on 2026-11-07 (Windows 11, Python 3.12.10, uv 0.11.21, Node 24.17.0): `uv sync --locked`, 40 tests passed (58 passed and 2 skipped after the extensions; 62 with `--group orchestration --extra ai`), `canecon-build` on `data` commit `53f8060` took about 30 s and passed with one expected warning, and the dashboard built with `npm run build:strict`.
 
 ## Limits
 

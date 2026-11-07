@@ -1,0 +1,44 @@
+name: Monthly brief
+
+# Writes the monthly brief with DeepSeek and checks every number against the warehouse.
+# Results (text, every draft, problems found, token usage) are uploaded as a run artifact;
+# nothing is committed or published. Without the DEEPSEEK_API_KEY secret only the template
+# is written. Monthly on the 15th, or by hand for a range of months.
+on:
+  schedule:
+    - cron: "0 16 15 * *"
+  workflow_dispatch:
+    inputs:
+      months:
+        description: "YYYY-MM or FIRST:LAST (default: last month)"
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  brief:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check out data branch
+        run: |
+          git fetch --depth=1 origin data
+          git worktree add data-branch FETCH_HEAD
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked --extra ai
+      - name: Build warehouse
+        run: uv run canecon-build --data-dir data-branch/raw --db warehouse.duckdb
+      - name: Write and check briefs
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          MONTHS: ${{ inputs.months }}
+        run: |
+          months="${MONTHS:-$(date -u -d "$(date -u +%Y-%m-01) -1 month" +%Y-%m)}"
+          model_args=()
+          if [ -n "$DEEPSEEK_API_KEY" ]; then model_args=(--model deepseek-flash); fi
+          uv run canecon-brief --db warehouse.duckdb --month "$months" --out briefs "${model_args[@]}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: briefs
+          path: briefs/

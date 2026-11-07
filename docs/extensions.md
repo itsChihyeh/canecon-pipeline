@@ -11,11 +11,13 @@ A language model writes a short English paragraph about one month; the program c
 3. **Check.** `verify` looks up the fact for that same series, period and measure and requires the same digits. Any other number in the text, except a four-digit year, fails the brief. A check that only asks "does this number appear somewhere in the data" would pass 0.5% for retail sales when 0.5% is GDP's figure; `tests/test_brief.py` has that case.
 4. **Retry, then fall back.** On failure the model gets one retry with the list of problems. If the retry fails too, or the API errors, the model's text is dropped and a fixed template built only from the facts is used instead. Each result is saved as JSON with every draft and the problems found.
 
-Status (2026-11-07): the check, the retry and the fallback are tested with a scripted stand-in for the model (16 tests in `tests/test_brief.py`, all values hand-computed). **No language model has been called yet**, so there is no measured pass rate. Calling one needs an API key, which costs money and is the owner's decision. Until then `canecon-brief` without `--model` writes the template only:
+Model: DeepSeek `deepseek-flash` through its OpenAI-compatible API (owner's choice, 2026-11-07), thinking on at low effort. Token usage of every attempt is saved with the result, so the cost of each brief is counted.
+
+Status (2026-11-07): the check, the retry and the fallback are tested with a scripted stand-in for the model, and the DeepSeek adapter against a mocked HTTP endpoint (17 tests in `tests/test_brief.py`, all values hand-computed). **No language model has been called yet**, so there is no measured pass rate. `.github/workflows/brief.yml` runs monthly and by hand, reads the key from the `DEEPSEEK_API_KEY` secret and uploads the results as a run artifact; without the secret it writes the template only:
 
 ```bash
 uv run canecon-brief --month 2026-08                       # template only, no API call
-uv run canecon-brief --month 2024-01:2026-10 --model <id>   # needs ANTHROPIC_API_KEY and the anthropic package
+uv sync --extra ai && uv run canecon-brief --month 2024-01:2026-10 --model deepseek-flash   # needs DEEPSEEK_API_KEY
 ```
 
 Limits:
@@ -63,7 +65,7 @@ uv sync --group orchestration
 uv run --group orchestration dagster dev -m canecon.orchestration
 ```
 
-Error-level quality checks already fail the dbt build, so after a successful build the asset check mostly shows the warnings. Tests (`tests/test_orchestration.py`, 3 tests): a build that fails on quality errors and a build with no snapshots both stop all downstream assets and write no files; the check passes with warnings and fails on an error row. The tests skip when Dagster is not installed; CI installs it.
+Error-level quality checks already fail the dbt build, so after a successful build the asset check mostly shows the warnings. Tests (`tests/test_orchestration.py`, 3 tests): a build that fails on quality errors and a build with no snapshots both stop all downstream assets and write no files; the check passes with warnings and fails on an error row. The tests skip when Dagster is not installed; CI installs it (and the `ai` extra).
 
 Run by hand on `data` commit `53f8060` (2026-11-07, Dagster 1.13.29, in-process `materialize`): all four assets and the check succeeded in about 66 s, the check passed with 1 warning (the April 2020 GDP drop), and the brief for 2026-10 fell back to the template because no model was configured.
 
