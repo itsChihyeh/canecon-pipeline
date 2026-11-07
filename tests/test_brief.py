@@ -103,6 +103,12 @@ def test_correct_brief_passes(con):
     assert check.checked == 6
 
 
+def test_year_at_end_of_sentence_is_allowed(con):
+    # Found in the first DeepSeek run (2026-11-07): "... in September 2024." was rejected.
+    check = verify(GOOD + " Data cover August 2026.", month_facts(con, "2026-08", AFTER))
+    assert check.ok, check.problems
+
+
 @pytest.mark.parametrize(
     "bad, why",
     [
@@ -115,6 +121,7 @@ def test_correct_brief_passes(con):
         # A number with no marker.
         (GOOD + " Exports rose 4.1%.", "outside a citation marker: '4.1%'"),
         (GOOD + " That is 3 months in a row.", "outside a citation marker: '3'"),
+        (GOOD + " Output was 2026.5 billion.", "outside a citation marker: '2026.5'"),
         ("Nothing much happened in August 2026.", "no numbers cited"),
         (GOOD.replace("]]% and", "] and", 1), "malformed"),
     ],

@@ -57,7 +57,8 @@ MEASURE_TEXT = {
 
 MARKER = re.compile(r"\[\[([a-z0-9_]+)\|(\d{4}-\d{2})\|([a-z_]+)\|(-?\d+(?:\.\d+)?)\]\]")
 # After markers are removed, the only digits allowed are four-digit years.
-BARE_NUMBER = re.compile(r"(?<![\w.])(?!(?:19|20)\d{2}(?![\d.]))-?\d[\d,]*(?:\.\d+)?%?")
+# A year may end a sentence ("in May 2026."); "2026.5" is still a number.
+BARE_NUMBER = re.compile(r"(?<![\w.])(?!(?:19|20)\d{2}(?!\.?\d))-?\d[\d,]*(?:\.\d+)?%?")
 
 MAX_ATTEMPTS = 2  # first try + one retry
 
