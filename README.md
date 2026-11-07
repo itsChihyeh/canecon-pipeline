@@ -48,7 +48,7 @@ Requires [uv](https://docs.astral.sh/uv/). The tests need no network.
 
 ```bash
 uv sync
-uv run pytest -q                 # 60 tests (64 with --group orchestration --extra ai)
+uv run --group orchestration --extra ai pytest -q   # 65 tests; plain `uv run pytest -q` skips the Dagster and DeepSeek ones
 uv run canecon-demo-failure      # offline: injected API failures, retry, partial run, catch-up
 ```
 
@@ -61,7 +61,7 @@ uv run canecon-build --data-dir data/snap/raw --db data/local/warehouse.duckdb
 
 Other commands: `canecon-collect` (one live capture), `canecon-catchup` (fill missed days), `canecon-backfill` (official GDP vintages), `canecon-export` (public tables for the dashboard), `canecon-brief` and `canecon-baseline` (extensions). Dashboard (Node 18+), after `canecon-export`: `cd dashboard && npm ci && npm run sources && npm run dev`.
 
-Checked from a fresh clone on 2026-11-07 (Windows 11, Python 3.12.10, uv 0.11.21, Node 24.17.0): `uv sync --locked`, 40 tests passed (60 passed and 2 skipped after the extensions; 64 with `--group orchestration --extra ai`), `canecon-build` on `data` commit `53f8060` took about 30 s and passed with one expected warning, and the dashboard built with `npm run build:strict`.
+Checked from a fresh clone of `81a9a3e` on 2026-11-07 (Windows 11, Python 3.12.10, uv 0.11.21, Node 24.17.0): `uv sync --locked`; ruff and mypy clean; 65 tests passed with `--group orchestration --extra ai` (61 passed and 2 skipped without); `canecon-build` on `data` commit `dff27ae` passed with one expected warning (7 series, 2,968 vintages, 23 quality checks) in 62 s, of which dbt's models and tests took 2.8 s; the dashboard built from the same files with `npm run build:strict`.
 
 ## Limits
 

@@ -17,7 +17,7 @@ This project was built with an AI coding assistant (Claude Code). Being clear ab
 
 ## Checks that do not depend on trusting the AI
 
-- 64 tests (`uv run --group orchestration --extra ai pytest -q`; 40 before the extensions in [extensions.md](extensions.md)), including hand-computed revision and point-in-time scenarios, DST edge cases, idempotent rebuilds, fault injection and the public-data filter of the export. During development, deliberate breakages of the revision logic were caught by these tests.
+- 65 tests (`uv run --group orchestration --extra ai pytest -q`; 40 before the extensions in [extensions.md](extensions.md)), plus ruff and mypy in CI, including hand-computed revision and point-in-time scenarios, DST edge cases, idempotent rebuilds, fault injection and the public-data filter of the export. During development, deliberate breakages of the revision logic were caught by these tests.
 - 23 data quality checks on the real data (26 before USD/CAD was dropped), run on every build.
 - The idempotency check on GitHub Actions and the live catch-up run in [reliability.md](reliability.md).
 - Every number in [analysis.md](analysis.md) has the query that produced it and the `data` commit it was run on.

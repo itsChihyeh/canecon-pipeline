@@ -6,7 +6,7 @@ Each entry: what was chosen, what else was possible, and why. "Would change if" 
 
 - **Chosen:** DuckDB, a single-file analytical database, rebuilt from the raw snapshots on every run.
 - **Alternatives:** PostgreSQL (a server to run and pay for, or a free tier with limits); BigQuery or Snowflake (accounts, credentials in CI, cost control).
-- **Why:** the whole warehouse is about 13,700 observation rows and builds in about 30 seconds on a laptop. DuckDB runs inside the Python process and inside GitHub Actions with no service, no credentials and no cost. Because the warehouse is rebuilt from scratch, there is no migration or state to manage: delete the file and build again.
+- **Why:** the whole warehouse is about 13,800 observation rows and builds in under a minute on a laptop (the dbt models and tests themselves take about 3 seconds). DuckDB runs inside the Python process and inside GitHub Actions with no service, no credentials and no cost. Because the warehouse is rebuilt from scratch, there is no migration or state to manage: delete the file and build again.
 - **Would change if:** several people or services had to query the warehouse at the same time, or the data grew past what one machine can rebuild in minutes. Then a server or cloud warehouse (and incremental models) would pay off.
 
 ## 2. Raw snapshots in a git branch, not a database or cloud bucket

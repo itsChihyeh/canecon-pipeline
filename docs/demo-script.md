@@ -14,7 +14,7 @@ About 8 minutes. Part A needs only a browser. Part B needs a clone with `uv sync
 ## B. Terminal (5 minutes)
 
 ```bash
-uv run pytest -q                 # 40 tests, about 1 minute
+uv run --group orchestration --extra ai pytest -q   # 65 tests, about 2 minutes
 uv run canecon-demo-failure      # offline: injected 500/503, retries, partial run, missing day, catch-up
 ```
 
@@ -22,7 +22,7 @@ In the demo output point at: the retry waits (2 s, 4 s, 8 s), `run status: parti
 
 Idempotency, if asked: two back-to-back runs on GitHub Actions added manifest lines but no new snapshot files, and the rebuilt `vintages` table was identical row by row ([reliability.md](reliability.md#idempotent-reruns-checked-on-github-actions)).
 
-Build from the real snapshots (about 30 seconds after the fetch):
+Build from the real snapshots (30–60 seconds after the fetch, mostly dbt start-up):
 
 ```bash
 git fetch origin data && mkdir -p data/snap && git archive origin/data | tar -x -C data/snap
