@@ -24,10 +24,10 @@ import os
 import sys
 import time
 import uuid
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
-from typing import Callable, Iterable, Iterator
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -49,7 +49,7 @@ USER_AGENT = "canecon-pipeline (+https://github.com/itsChihyeh/canecon-pipeline)
 
 
 def utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+    return datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
 def sha256_hex(data: bytes) -> str:
@@ -341,13 +341,11 @@ def catchup_main(argv: list[str] | None = None) -> int:
         description="Catch up missed collection days (all gaps up to today if no --date is given)."
     )
     _common_args(parser)
-    parser.add_argument(
-        "--date", type=date.fromisoformat, action="append", help="UTC day, e.g. 2026-11-05; repeatable"
-    )
+    parser.add_argument("--date", type=date.fromisoformat, action="append", help="UTC day, e.g. 2026-11-05; repeatable")
     args = parser.parse_args(argv)
     store = RawStore(args.data_dir)
     try:
-        days = plan_catchup(store, args.date, datetime.now(timezone.utc).date())
+        days = plan_catchup(store, args.date, datetime.now(UTC).date())
     except ValueError as exc:
         parser.error(str(exc))
     if not days:

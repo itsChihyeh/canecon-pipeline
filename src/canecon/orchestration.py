@@ -11,12 +11,11 @@ same steps lineage, run history and checks in Dagster's UI. Install with
 `uv sync --group orchestration`, then `uv run dagster dev -m canecon.orchestration`.
 """
 
-
 import json
 import subprocess
 import sys
 from dataclasses import asdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import duckdb
@@ -47,7 +46,7 @@ class PipelinePaths(ConfigurableResource):
     brief_model: str = ""  # empty = template only, no API call
 
     def as_of_utc(self) -> str:
-        return self.as_of or datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        return self.as_of or datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
 
 
 raw_snapshots = AssetSpec(
@@ -61,14 +60,28 @@ raw_snapshots = AssetSpec(
 def warehouse(context: AssetExecutionContext, paths: PipelinePaths) -> MaterializeResult:
     # dbt keeps its DuckDB connection open inside the process, so the build runs in its own
     # process, as in CI; a failed build stops everything downstream.
-    cmd = [sys.executable, "-m", "canecon.build", "--data-dir", paths.data_dir, "--db", paths.db, "--as-of", paths.as_of_utc()]
+    cmd = [
+        sys.executable,
+        "-m",
+        "canecon.build",
+        "--data-dir",
+        paths.data_dir,
+        "--db",
+        paths.db,
+        "--as-of",
+        paths.as_of_utc(),
+    ]
     proc = subprocess.run(cmd, capture_output=True, text=True)
     context.log.info(proc.stdout)
     if proc.returncode != 0:
-        raise Failure(description="canecon-build failed", metadata={"output": MetadataValue.text(proc.stdout + proc.stderr)})
+        raise Failure(
+            description="canecon-build failed", metadata={"output": MetadataValue.text(proc.stdout + proc.stderr)}
+        )
     con = duckdb.connect(paths.db, read_only=True)
     try:
-        n_series, n_vintages = con.execute("select count(distinct series_id), count(*) from main.vintages").fetchone()
+        n_series, n_vintages = con.execute("select count(distinct series_id), count(*) from main.vintages").fetchall()[
+            0
+        ]
     finally:
         con.close()
     return MaterializeResult(metadata={"series": n_series, "vintages": n_vintages})
@@ -82,7 +95,7 @@ def summarize_quality(db: str) -> tuple[bool, dict]:
             "select status, check_name, subject, observed from main.mart_quality_checks where status <> 'pass' "
             "order by status, check_name, subject"
         ).fetchall()
-        total = con.execute("select count(*) from main.mart_quality_checks").fetchone()[0]
+        total = con.execute("select count(*) from main.mart_quality_checks").fetchall()[0][0]
     finally:
         con.close()
     errors = [r for r in rows if r[0] == "error"]
@@ -129,7 +142,9 @@ def monthly_brief(paths: PipelinePaths) -> MaterializeResult:
     out = Path(paths.briefs_dir)
     out.mkdir(parents=True, exist_ok=True)
     (out / f"{month}.json").write_text(json.dumps(asdict(result), indent=2, default=str), encoding="utf-8")
-    return MaterializeResult(metadata={"month": month, "status": result.status, "facts": len(result.facts), "text": result.text})
+    return MaterializeResult(
+        metadata={"month": month, "status": result.status, "facts": len(result.facts), "text": result.text}
+    )
 
 
 defs = Definitions(

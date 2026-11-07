@@ -13,8 +13,8 @@ Nothing here is used unless a fault rule is given explicitly.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 import httpx
 

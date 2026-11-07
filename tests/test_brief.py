@@ -26,7 +26,7 @@ from __future__ import annotations
 import duckdb
 import pytest
 
-from canecon.brief import _round, month_facts, template_brief, verify, write_brief, MARKER, BARE_NUMBER
+from canecon.brief import BARE_NUMBER, MARKER, _round, month_facts, template_brief, verify, write_brief
 
 AFTER = "2026-11-01 00:00:00"
 BEFORE_REVISION = "2026-10-15 00:00:00"
@@ -65,10 +65,12 @@ def con():
         "vintage_number integer, valid_from timestamp, valid_to timestamp, source_snapshot_sha256 varchar)"
     )
     c.executemany("insert into main.vintages values (?, ?, ?, ?, ?, ?, 'sha')", ROWS)
-    c.execute("create table main.series_info as select * from (values "
-              "('gdp_all_industries', 'Real GDP'), ('retail_sales_total_sa', 'Retail sales'), "
-              "('unemployment_rate_sa', 'Unemployment rate'), ('cpi_all_items', 'CPI'), "
-              "('policy_rate_target', 'Policy rate')) t(series_id, label)")
+    c.execute(
+        "create table main.series_info as select * from (values "
+        "('gdp_all_industries', 'Real GDP'), ('retail_sales_total_sa', 'Retail sales'), "
+        "('unemployment_rate_sa', 'Unemployment rate'), ('cpi_all_items', 'CPI'), "
+        "('policy_rate_target', 'Policy rate')) t(series_id, label)"
+    )
     yield c
     c.close()
 
@@ -113,7 +115,10 @@ def test_year_at_end_of_sentence_is_allowed(con):
     "bad, why",
     [
         # A number that exists in the data, but for another series: a set-membership check passes it.
-        (GOOD.replace("retail_sales_total_sa|2026-08|mom_pct|0.3", "retail_sales_total_sa|2026-08|mom_pct|0.5"), "expected 0.3"),
+        (
+            GOOD.replace("retail_sales_total_sa|2026-08|mom_pct|0.3", "retail_sales_total_sa|2026-08|mom_pct|0.5"),
+            "expected 0.3",
+        ),
         # The right series and value, but another month.
         (GOOD.replace("gdp_all_industries|2026-08", "gdp_all_industries|2026-07"), "no such fact"),
         # Same value written with other decimals.
@@ -202,13 +207,21 @@ def test_deepseek_generator_request_and_usage(con):
 
     def handler(request: httpx.Request) -> httpx.Response:
         seen.append(request)
-        return httpx.Response(200, json={
-            "id": "x", "object": "chat.completion", "created": 0, "model": "deepseek-flash",
-            "choices": [{"index": 0, "finish_reason": "stop", "message": {"role": "assistant", "content": GOOD}}],
-            "usage": {"prompt_tokens": 900, "completion_tokens": 300, "total_tokens": 1200},
-        })
+        return httpx.Response(
+            200,
+            json={
+                "id": "x",
+                "object": "chat.completion",
+                "created": 0,
+                "model": "deepseek-flash",
+                "choices": [{"index": 0, "finish_reason": "stop", "message": {"role": "assistant", "content": GOOD}}],
+                "usage": {"prompt_tokens": 900, "completion_tokens": 300, "total_tokens": 1200},
+            },
+        )
 
-    gen = DeepSeekGenerator("deepseek-flash", api_key="test-key", http_client=httpx.Client(transport=httpx.MockTransport(handler)))
+    gen = DeepSeekGenerator(
+        "deepseek-flash", api_key="test-key", http_client=httpx.Client(transport=httpx.MockTransport(handler))
+    )
     result = write_brief(con, "2026-08", AFTER, gen)
     assert result.status == "llm_verified"
     assert result.attempts[0]["usage"] == {"prompt_tokens": 900, "completion_tokens": 300}

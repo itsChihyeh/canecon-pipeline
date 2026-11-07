@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import duckdb
 import pytest
-
+from test_vintages import build_store
 
 from canecon.build import run_dbt
 from canecon.export import TABLES, export
 from canecon.load import load
-from test_vintages import build_store
 
 PUBLIC = {
     "gdp_all_industries",
@@ -32,8 +31,12 @@ def exported(tmp_path_factory):
     con = duckdb.connect(str(db))
     # The synthetic scenario has GDP and the policy rate only; add an FX row to every
     # table that carries series data, as if it had been collected.
-    con.execute("insert into main.vintages by name select * replace ('fx_usdcad' as series_id) from main.vintages limit 1")
-    con.execute("insert into main.mart_latest by name select * replace ('fx_usdcad' as series_id) from main.mart_latest limit 1")
+    con.execute(
+        "insert into main.vintages by name select * replace ('fx_usdcad' as series_id) from main.vintages limit 1"
+    )
+    con.execute(
+        "insert into main.mart_latest by name select * replace ('fx_usdcad' as series_id) from main.mart_latest limit 1"
+    )
     con.execute(
         "insert into main.mart_first_release by name "
         "select * replace ('fx_usdcad' as series_id) from main.mart_first_release limit 1"
@@ -69,9 +72,7 @@ def test_public_series_are_exported_with_their_values(exported):
     con, counts = exported
     assert {r[0] for r in con.execute("select series_id from series").fetchall()} == PUBLIC
     # Hand-computed from the scenario in test_vintages: GDP Nov 2025 has 3 vintages, Dec 1.
-    assert con.execute(
-        "select count(*) from vintages where series_id = 'gdp_all_industries'"
-    ).fetchone()[0] == 4
+    assert con.execute("select count(*) from vintages where series_id = 'gdp_all_industries'").fetchone()[0] == 4
     assert counts["vintages"] == 5  # + 1 policy-rate vintage; the FX row is dropped
 
 

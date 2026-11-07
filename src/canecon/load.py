@@ -105,7 +105,10 @@ def load(root: Path, db_path: Path) -> int:
         if rows:
             con.executemany(
                 f"insert into raw.observations values ({', '.join('?' * len(OBS_COLUMNS))})",
-                [[r[c].rstrip("Z") if c in ("published_at", "captured_at") else r[c] for c in OBS_COLUMNS] for r in rows],
+                [
+                    [r[c].rstrip("Z") if c in ("published_at", "captured_at") else r[c] for c in OBS_COLUMNS]
+                    for r in rows
+                ],
             )
         con.execute(
             """
@@ -120,8 +123,19 @@ def load(root: Path, db_path: Path) -> int:
             con.executemany(
                 "insert into raw.captures values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 [
-                    [m["run_id"], m["request_id"], m["source"], m["url"], m["captured_at"].rstrip("Z"),
-                     m["http_status"], m["attempts"], m["ok"], m["error"], m["content_sha256"], m["object_path"]]
+                    [
+                        m["run_id"],
+                        m["request_id"],
+                        m["source"],
+                        m["url"],
+                        m["captured_at"].rstrip("Z"),
+                        m["http_status"],
+                        m["attempts"],
+                        m["ok"],
+                        m["error"],
+                        m["content_sha256"],
+                        m["object_path"],
+                    ]
                     for m in manifest
                 ],
             )
@@ -137,8 +151,15 @@ def load(root: Path, db_path: Path) -> int:
             con.executemany(
                 "insert into raw.runs values (?, ?, ?, ?, ?, ?, ?)",
                 [
-                    [r["run_id"], r.get("kind", "daily"), r["started_at"].rstrip("Z"), r["finished_at"].rstrip("Z"),
-                     r["n_requests"], r["n_ok"], r["status"]]
+                    [
+                        r["run_id"],
+                        r.get("kind", "daily"),
+                        r["started_at"].rstrip("Z"),
+                        r["finished_at"].rstrip("Z"),
+                        r["n_requests"],
+                        r["n_ok"],
+                        r["status"],
+                    ]
                     for r in runs
                 ],
             )
@@ -158,8 +179,10 @@ def load(root: Path, db_path: Path) -> int:
         if changed:
             con.executemany(
                 "insert into raw.changed_tables values (?, ?, ?, ?, ?)",
-                [[c["run_id"], c["day"], c["product_id"], c["release_time"].rstrip("Z"), c["content_sha256"]]
-                 for c in changed],
+                [
+                    [c["run_id"], c["day"], c["product_id"], c["release_time"].rstrip("Z"), c["content_sha256"]]
+                    for c in changed
+                ],
             )
     finally:
         con.close()

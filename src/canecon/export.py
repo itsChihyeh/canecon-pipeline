@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import duckdb
@@ -73,13 +73,13 @@ def export(warehouse: Path, out: Path, data_commit: str | None = None) -> dict[s
         counts = {}
         for name, query in TABLES.items():
             con.execute(f"create table d.main.{name} as {query}")
-            counts[name] = con.execute(f"select count(*) from d.main.{name}").fetchone()[0]
+            counts[name] = con.execute(f"select count(*) from d.main.{name}").fetchall()[0][0]
         ref = data_commit or "data"
         con.execute(
             "create table d.main.build_info as select ? as built_at, ? as data_commit, ? as snapshot_base_url, "
             "(select max(checked_as_of) from w.main.mart_quality_checks) as quality_checked_as_of",
             [
-                datetime.now(timezone.utc).replace(tzinfo=None, microsecond=0),
+                datetime.now(UTC).replace(tzinfo=None, microsecond=0),
                 data_commit,
                 f"{REPO_URL}/blob/{ref}/raw/",
             ],

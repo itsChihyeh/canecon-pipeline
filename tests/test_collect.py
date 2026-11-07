@@ -128,9 +128,7 @@ def test_retry_then_success_with_exponential_backoff():
 
 
 def test_network_error_is_retried():
-    client, _ = scripted_client(
-        {"getDataFromVectors": [httpx.ConnectError("boom"), 200]}
-    )
+    client, _ = scripted_client({"getDataFromVectors": [httpx.ConnectError("boom"), 200]})
     result = fetch_with_retry(client, daily_requests()[0], sleep=no_sleep)
     assert result.status_code == 200
     assert result.attempts == 2

@@ -55,10 +55,7 @@ def daily_requests() -> list[Request]:
             source="statcan_wds",
             method="POST",
             url=f"{STATCAN_WDS}/getDataFromVectorsAndLatestNPeriods",
-            json_body=[
-                {"vectorId": v, "latestN": STATCAN_LATEST_N}
-                for v, _, _ in STATCAN_VECTORS
-            ],
+            json_body=[{"vectorId": v, "latestN": STATCAN_LATEST_N} for v, _, _ in STATCAN_VECTORS],
         ),
         Request(
             request_id="statcan_series_info",

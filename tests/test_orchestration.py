@@ -12,6 +12,7 @@ import pytest
 pytest.importorskip("dagster")
 
 from dagster import materialize  # noqa: E402
+from test_vintages import build_store  # noqa: E402
 
 from canecon.orchestration import (  # noqa: E402
     PipelinePaths,
@@ -21,7 +22,6 @@ from canecon.orchestration import (  # noqa: E402
     summarize_quality,
     warehouse,
 )
-from test_vintages import build_store  # noqa: E402
 
 ASSETS = [warehouse, dashboard_export, monthly_brief, quality_checks]
 
@@ -54,7 +54,9 @@ def test_failed_build_stops_downstream(tmp_path, case):
 def quality_db(tmp_path, statuses):
     db = tmp_path / "q.duckdb"
     con = duckdb.connect(str(db))
-    con.execute("create table main.mart_quality_checks (status varchar, check_name varchar, subject varchar, observed double)")
+    con.execute(
+        "create table main.mart_quality_checks (status varchar, check_name varchar, subject varchar, observed double)"
+    )
     con.executemany("insert into main.mart_quality_checks values (?, 'c', 's', 1)", [[s] for s in statuses])
     con.close()
     return str(db)

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
@@ -31,7 +31,7 @@ assert set(BOC_TO_SERIES) == set(BOC_SERIES)
 def eastern_to_utc(local: datetime) -> str:
     """'2026-10-30T08:30' (Eastern, naive) -> '2026-10-30T12:30:00Z'."""
     aware = local.replace(tzinfo=EASTERN)
-    return aware.astimezone(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+    return aware.astimezone(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
 def decimals_of(value: str) -> int:

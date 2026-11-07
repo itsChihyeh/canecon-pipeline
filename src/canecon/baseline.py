@@ -93,15 +93,17 @@ def walk_forward(rows: list[Row], embargo_months: int = 36, min_train: int = 24)
             model = LogisticRegression()
             model.fit([[getattr(r, f) for f in FEATURES] for r in train], y)
             model_pred = int(model.predict([[getattr(target, f) for f in FEATURES]])[0])
-        out.append({
-            "ref_period": target.ref_period,
-            "n_train": len(train),
-            "last_train_period": max(r.ref_period for r in train),
-            "actual": target.up,
-            "model": model_pred,
-            "majority": majority,
-            "always_up": 1,
-        })
+        out.append(
+            {
+                "ref_period": target.ref_period,
+                "n_train": len(train),
+                "last_train_period": max(r.ref_period for r in train),
+                "actual": target.up,
+                "model": model_pred,
+                "majority": majority,
+                "always_up": 1,
+            }
+        )
     return out
 
 

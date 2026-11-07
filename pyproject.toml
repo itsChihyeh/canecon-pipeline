@@ -12,7 +12,9 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "mypy>=2.4.1",
     "pytest>=8",
+    "ruff>=0.17.4",
     "scikit-learn>=1.9.1",
 ]
 orchestration = [
@@ -43,3 +45,15 @@ packages = ["src/canecon"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = ["E501"]  # long lines are left to the formatter; some strings and SQL stay long
+
+[tool.mypy]
+files = ["src"]
+ignore_missing_imports = true

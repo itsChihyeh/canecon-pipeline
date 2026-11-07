@@ -24,11 +24,12 @@ import argparse
 import json
 import re
 import sys
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import ROUND_HALF_EVEN, Decimal
 from pathlib import Path
-from typing import Callable, Protocol
+from typing import Protocol
 
 import duckdb
 
@@ -145,24 +146,26 @@ def month_facts(con: duckdb.DuckDBPyConnection, month: str, as_of_utc: str) -> l
                 elif cur is not None and base is not None:
                     raw = (cur / base - 1) * 100 if measure.endswith("pct") else cur - base
             else:  # daily series: last observation in the month
-                def last_in(start: date, end: date) -> Decimal | None:
-                    days = [d for d in values if start <= d < end]
-                    return values[max(days)] if days else None
 
-                end_m0, end_m1 = last_in(m0, next_m), last_in(m1, m0)
+                def last_in(series_values: dict[date, Decimal], start: date, end: date) -> Decimal | None:
+                    days = [d for d in series_values if start <= d < end]
+                    return series_values[max(days)] if days else None
+
+                end_m0, end_m1 = last_in(values, m0, next_m), last_in(values, m1, m0)
                 if measure == "month_end":
                     raw = end_m0
                 elif end_m0 is not None and end_m1 is not None:
                     raw = end_m0 - end_m1
             if raw is not None:
-                facts.append(Fact(series_id, labels.get(series_id, series_id), month, measure, decimals, _round(raw, decimals)))
+                facts.append(
+                    Fact(series_id, labels.get(series_id, series_id), month, measure, decimals, _round(raw, decimals))
+                )
     return facts
 
 
 def build_prompt(month: str, facts: list[Fact], problems: list[str] | None = None) -> str:
     table = "\n".join(
-        f"- {f.label} ({f.series_id}), {f.period}, {f.measure} = {f.shown}  [{MEASURE_TEXT[f.measure]}]"
-        for f in facts
+        f"- {f.label} ({f.series_id}), {f.period}, {f.measure} = {f.shown}  [{MEASURE_TEXT[f.measure]}]" for f in facts
     )
     month_name = _month_start(month).strftime("%B %Y")
     prompt = f"""Write a short economic brief for Canada about {month_name}, in English, 80 to 150 words, one paragraph.
@@ -191,7 +194,9 @@ def verify(text: str, facts: list[Fact]) -> Verification:
         result.checked += 1
         fact = by_key.get((series_id, period, measure))
         if fact is None:
-            result.problems.append(f"{m.group(0)}: no such fact (series {series_id}, period {period}, measure {measure})")
+            result.problems.append(
+                f"{m.group(0)}: no such fact (series {series_id}, period {period}, measure {measure})"
+            )
         elif shown != fact.shown:
             result.problems.append(f"{m.group(0)}: expected {fact.shown} for {series_id} {period} {measure}")
     leftover = MARKER.sub(" ", text)
@@ -235,14 +240,22 @@ def write_brief(con: duckdb.DuckDBPyConnection, month: str, as_of_utc: str, gene
                 break
             check = verify(draft, facts)
             attempt = {"attempt": n, "draft": draft, "checked": check.checked, "problems": check.problems}
-            if getattr(generator, "last_usage", None):
-                attempt["usage"] = generator.last_usage
+            usage = getattr(generator, "last_usage", None)
+            if usage:
+                attempt["usage"] = usage
             attempts.append(attempt)
             if check.ok:
-                return BriefResult(month, as_of_utc, "llm_verified", render(draft), attempts, fact_dicts, generator.name)
+                return BriefResult(
+                    month, as_of_utc, "llm_verified", render(draft), attempts, fact_dicts, generator.name
+                )
             problems = check.problems
     return BriefResult(
-        month, as_of_utc, "template_fallback", template_brief(month, facts), attempts, fact_dicts,
+        month,
+        as_of_utc,
+        "template_fallback",
+        template_brief(month, facts),
+        attempts,
+        fact_dicts,
         getattr(generator, "name", "none"),
     )
 
@@ -277,7 +290,9 @@ class DeepSeekGenerator:
             extra_body={"thinking": {"type": "enabled"}},
         )
         u = response.usage
-        self.last_usage = None if u is None else {"prompt_tokens": u.prompt_tokens, "completion_tokens": u.completion_tokens}
+        self.last_usage = (
+            None if u is None else {"prompt_tokens": u.prompt_tokens, "completion_tokens": u.completion_tokens}
+        )
         return response.choices[0].message.content or ""
 
 
@@ -298,7 +313,7 @@ def main(argv: list[str] | None = None, make_generator: Callable[[str], Generato
     parser.add_argument("--out", type=Path, default=Path("data/local/briefs"))
     args = parser.parse_args(argv)
 
-    as_of_utc = args.as_of or datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    as_of_utc = args.as_of or datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
     first, _, last = args.month.partition(":")
     months = months_between(first, last or first)
     generator = None

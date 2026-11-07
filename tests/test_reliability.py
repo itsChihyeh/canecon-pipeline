@@ -204,8 +204,11 @@ def corrupt_gdp_scale(raw: Path) -> None:
     from canecon.sources import daily_requests
 
     run_collection(
-        RawStore(raw), daily_requests(), httpx.Client(transport=httpx.MockTransport(handler)),
-        sleep=lambda _: None, now=lambda: "2026-11-07T15:45:00Z",
+        RawStore(raw),
+        daily_requests(),
+        httpx.Client(transport=httpx.MockTransport(handler)),
+        sleep=lambda _: None,
+        now=lambda: "2026-11-07T15:45:00Z",
     )
 
 

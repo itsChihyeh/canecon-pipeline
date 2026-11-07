@@ -18,9 +18,9 @@ from __future__ import annotations
 
 import argparse
 import tempfile
+from collections.abc import Callable
 from datetime import date
 from pathlib import Path
-from typing import Callable
 
 import duckdb
 import httpx
@@ -108,7 +108,7 @@ def run_demo(workdir: Path, out: Callable[[str], None] = print) -> dict:
         for day, status, n_runs, statuses, released in snap["coverage"]:
             note = f", StatCan released that day: {released or 'none of ours'}" if released is not None else ""
             out(f"  coverage {day}: {status} ({n_runs} run(s): {statuses}{note})")
-        for name, subject, status, observed, detail in snap["checks"]:
+        for name, _subject, status, observed, detail in snap["checks"]:
             out(f"  check {name}: {status} (observed {observed:g}){' ' + detail if detail else ''}")
 
     for i, day in enumerate(DAYS, start=1):
@@ -128,8 +128,13 @@ def run_demo(workdir: Path, out: Callable[[str], None] = print) -> dict:
     out(f"\nCatch-up for missing days {[d.isoformat() for d in days]}")
     with _client(None, out) as client:
         summary = run_collection(
-            store, catchup_requests(days, today_eastern=date.fromisoformat(DAYS[-1])), client, sleep=sleep, now=_clock(CATCHUP_AT),
-            kind="catchup", for_dates=[d.isoformat() for d in days],
+            store,
+            catchup_requests(days, today_eastern=date.fromisoformat(DAYS[-1])),
+            client,
+            sleep=sleep,
+            now=_clock(CATCHUP_AT),
+            kind="catchup",
+            for_dates=[d.isoformat() for d in days],
         )
     result["runs"].append(summary)
     out(f"  run status: {summary['status']} ({summary['n_ok']}/{summary['n_requests']} requests ok)")
