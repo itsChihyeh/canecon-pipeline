@@ -1,0 +1,53 @@
+name: Daily collect
+
+on:
+  schedule:
+    # 15:00 UTC = 10:00 EST / 11:00 EDT, after StatCan's 08:30 ET releases.
+    - cron: "0 15 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: collect
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check out data branch
+        run: |
+          if git ls-remote --exit-code --heads origin data >/dev/null; then
+            git fetch --depth=1 origin data
+            git worktree add data-branch origin/data
+            git -C data-branch switch -c data
+          else
+            git worktree add --orphan -b data data-branch
+          fi
+
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked
+
+      - name: Collect
+        id: collect
+        run: uv run canecon-collect --data-dir data-branch/raw
+        continue-on-error: true
+
+      - name: Commit snapshots to data branch
+        working-directory: data-branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add raw
+          git commit -m "Collect $(date -u +%Y-%m-%dT%H:%MZ) (${{ steps.collect.outcome }})"
+          git push origin data
+
+      - name: Fail if any request failed
+        if: steps.collect.outcome != 'success'
+        run: |
+          echo "::error::Collection was not fully successful; see data-branch/raw/runs.jsonl"
+          exit 1

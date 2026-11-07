@@ -1,0 +1,1 @@
+"""CanEcon Vintage Pipeline."""
