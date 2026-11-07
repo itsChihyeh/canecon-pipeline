@@ -22,6 +22,7 @@ canecon-build = "canecon.build:main"
 canecon-catchup = "canecon.collect:catchup_main"
 canecon-demo-failure = "canecon.demo:main"
 canecon-export = "canecon.export:main"
+canecon-brief = "canecon.brief:main"
 
 [build-system]
 requires = ["hatchling"]

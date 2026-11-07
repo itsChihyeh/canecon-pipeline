@@ -18,6 +18,7 @@ __pycache__/
 *.duckdb
 *.duckdb.wal
 data/local/
+data/snap/
 target/
 dbt_packages/
 logs/
