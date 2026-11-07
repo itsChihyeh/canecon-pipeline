@@ -22,7 +22,6 @@ STATCAN_RELEASE_HOUR = (8, 30)  # StatCan publishes at 08:30 Eastern
 VECTOR_TO_SERIES = {v: name for v, _, name in STATCAN_VECTORS}
 BOC_TO_SERIES = {
     "V39079": "policy_rate_target",
-    "FXUSDCAD": "fx_usdcad",
     "BD.CDN.2YR.DQ.YLD": "gov_bond_yield_2y",
     "BD.CDN.10YR.DQ.YLD": "gov_bond_yield_10y",
 }

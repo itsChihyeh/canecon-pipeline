@@ -26,9 +26,9 @@ flowchart LR
     D --> E[Evidence static site<br/>GitHub Pages]
 ```
 
-- **Collect** (GitHub Actions, 15:00 UTC daily): 3 requests cover 8 series. Retries with backoff; a run is `success` only if every request succeeded.
+- **Collect** (GitHub Actions, 15:00 UTC daily): 3 requests cover 7 series. Retries with backoff; a run is `success` only if every request succeeded.
 - **Raw layer**: each response stored once under its SHA-256 on the `data` branch, with a manifest of URL, parameters, capture time and status. Reruns add nothing new when the bytes are the same.
-- **Model**: the DuckDB warehouse is rebuilt from the snapshots each time. dbt finds revisions with window functions, ignoring changes of scale or decimals, and computes revision marts and 26 data quality checks. An error-level check fails the build.
+- **Model**: the DuckDB warehouse is rebuilt from the snapshots each time. dbt finds revisions with window functions, ignoring changes of scale or decimals, and computes revision marts and 23 data quality checks (26 before USD/CAD was dropped). An error-level check fails the build.
 - **History**: GDP revisions since 2015 come from Statistics Canada's real-time table 36-10-0491 (140 releases); other series accumulate from 2026-11-07.
 - **Dashboard**: only series cleared for publication are exported; the static site is rebuilt after every collection.
 - **Extensions** ([docs/extensions.md](docs/extensions.md)): a monthly brief where every number a language model writes must cite one series, period and measure and is checked against the warehouse (DeepSeek; 34 of 34 monthly briefs passed on the first try in a live run, about $0.04; template fallback), a scikit-learn walk-forward baseline for the direction of GDP revisions (no reliable edge found), and the pipeline as Dagster assets with a quality asset check.
@@ -64,7 +64,7 @@ Checked from a fresh clone on 2026-11-07 (Windows 11, Python 3.12.10, uv 0.11.21
 - Daily collection began on 2026-11-07; there is no long run history or success rate yet.
 - Bank of Canada data has no publication time in the API, so its capture time is used (conservative for point-in-time queries).
 - An API cannot be re-queried for a past day: a missed day is filled with today's data, and a StatCan table released twice inside a gap would lose the earlier vintage.
-- USD/CAD is collected but not shown: the Bank of Canada sources it from LSEG and its reuse terms are unclear.
+- USD/CAD was collected until 2026-11-07 and then dropped: the Bank of Canada sources it from LSEG, and its terms do not license third-party content for reuse. Raw snapshots up to that date still contain it, because rewriting the public append-only history would break the SHA-256 lineage; it is never loaded into the warehouse or shown.
 - A personal portfolio project built with an AI coding assistant; not used by any organisation. See [how this was built](docs/how-this-was-built.md).
 
 ## Data attribution

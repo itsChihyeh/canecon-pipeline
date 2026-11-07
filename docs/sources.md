@@ -13,7 +13,7 @@ Statistics Canada values were confirmed with WDS `getSeriesInfoFromVector` / `ge
 | StatCan | 14-10-0287-01 | v2062815 | Unemployment rate, 15+, total gender, SA | Monthly | units (%) | 2026-10, released 2026-11-06 |
 | StatCan | 18-10-0004-01 | v41690973 | CPI, all-items, Canada (not SA) | Monthly | units (index) | 2026-09, released 2026-10-19 |
 | BoC Valet | V39079 | – | Target for the overnight rate | Business daily | % | 2026-11-05 |
-| BoC Valet | FXUSDCAD | – | USD/CAD daily average exchange rate | Business daily | CAD per USD | 2026-11-06 |
+| BoC Valet | FXUSDCAD | – | USD/CAD daily average exchange rate (**dropped 2026-11-07**, see terms below) | Business daily | CAD per USD | 2026-11-06 |
 | BoC Valet | BD.CDN.2YR.DQ.YLD | – | Benchmark bond yield, 2-year | Business daily | % | 2026-11-05 |
 | BoC Valet | BD.CDN.10YR.DQ.YLD | – | Benchmark bond yield, 10-year | Business daily | % | 2026-11-05 |
 
@@ -45,7 +45,7 @@ Implication: GDP revision history can be backfilled from 36-10-0491. Retail can 
 
 Do not use the Statistics Canada name or logo as branding.
 
-**Bank of Canada Terms of Use** (https://www.bankofcanada.ca/terms/): content may be freely used with attribution to the Bank of Canada and an indication if changes were made. Exchange-rate data is noted as sourced from LSEG; the terms say third-party content is not licensed for reuse unless stated. Open question: whether this restricts republishing FXUSDCAD on a public dashboard. Until resolved, show FX only as derived charts with attribution, or drop it from the public dashboard.
+**Bank of Canada Terms of Use** (https://www.bankofcanada.ca/terms/): content may be freely used with attribution to the Bank of Canada and an indication if changes were made. Exchange-rate data is noted as sourced from LSEG; the terms say third-party content is not licensed for reuse unless stated. Decision (2026-11-07): FXUSDCAD is no longer requested. Snapshots captured on 2026-11-07 (each holding about 30 business days of values) still contain it on the public `data` branch and in `tests/fixtures/boc_observations_recent_2026-11-07.json`. They are left as they are: the raw layer is append-only and every file is named by its SHA-256, so removing the series would mean rewriting public history and breaking the lineage of the policy-rate and bond-yield values in the same responses. The parser ignores FXUSDCAD, so it never reaches the warehouse, the dashboard or the brief. If the Bank of Canada or LSEG asked for removal, the history would be rewritten.
 
 ## Rate limits and timing
 

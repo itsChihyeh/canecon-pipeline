@@ -20,10 +20,11 @@ STATCAN_VECTORS = [
     (41690973, "18-10-0004-01", "cpi_all_items"),
 ]
 
-# Bank of Canada Valet series codes
+# Bank of Canada Valet series codes. USD/CAD (FXUSDCAD) was collected until 2026-11-07 and
+# dropped: the Bank sources it from LSEG and its terms do not license third-party content for
+# reuse. Older raw snapshots that contain it stay unchanged; the parser ignores it.
 BOC_SERIES = [
     "V39079",  # target for the overnight rate
-    "FXUSDCAD",  # USD/CAD daily average
     "BD.CDN.2YR.DQ.YLD",  # 2-year benchmark bond yield
     "BD.CDN.10YR.DQ.YLD",  # 10-year benchmark bond yield
 ]

@@ -13,12 +13,12 @@ This project was built with an AI coding assistant (Claude Code). Being clear ab
 
 - Chose the problem and the goal: a second portfolio project that shows Python, SQL modelling and a public deployment, using only official public data.
 - Set the rules the work had to follow: no invented numbers (every figure must come from a command that was run), the seven correctness constraints to test first (separate reference, release and capture times; append-only raw layer with SHA-256 lineage; idempotent reruns; revisions that ignore scale and rounding; point-in-time queries without look-ahead; no partial publishes; tests on recorded responses with hand-computed expectations), privacy limits, and what not to use (Spark, Kafka, paid services).
-- Approved each step that is public or hard to undo: creating the public repository, every push, turning on GitHub Pages. USD/CAD stays off the dashboard until the owner decides on its licence question.
+- Approved each step that is public or hard to undo: creating the public repository, every push, turning on GitHub Pages. USD/CAD: the owner left the licence question to the assistant (2026-11-07); it was dropped from collection, and the history already published was left unchanged.
 
 ## Checks that do not depend on trusting the AI
 
 - 64 tests (`uv run --group orchestration --extra ai pytest -q`; 40 before the extensions in [extensions.md](extensions.md)), including hand-computed revision and point-in-time scenarios, DST edge cases, idempotent rebuilds, fault injection and the public-data filter of the export. During development, deliberate breakages of the revision logic were caught by these tests.
-- 26 data quality checks on the real data, run on every build.
+- 23 data quality checks on the real data (26 before USD/CAD was dropped), run on every build.
 - The idempotency check on GitHub Actions and the live catch-up run in [reliability.md](reliability.md).
 - Every number in [analysis.md](analysis.md) has the query that produced it and the `data` commit it was run on.
 - The language-model brief cannot publish a number the program has not matched to the same series, period and measure in the warehouse; see [extensions.md](extensions.md).

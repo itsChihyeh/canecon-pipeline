@@ -4,6 +4,5 @@ retail_sales_total_sa,statcan,20100056,monthly,"dollars, SA",125,30000000000,200
 unemployment_rate_sa,statcan,14100287,monthly,"percent, SA",80,0,30,abs,1,6
 cpi_all_items,statcan,18100004,monthly,"index, 2002=100",95,50,400,pct,2,10
 policy_rate_target,boc,,daily,percent,7,0,25,abs,0.5,2
-fx_usdcad,boc,,daily,CAD per USD,7,0.8,2,pct,2,10
 gov_bond_yield_2y,boc,,daily,percent,7,-2,20,abs,0.25,1
 gov_bond_yield_10y,boc,,daily,percent,7,-2,20,abs,0.25,1

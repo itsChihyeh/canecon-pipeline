@@ -176,7 +176,7 @@ def test_demo_quality_checks_all_pass_after_catchup(demo):
     con = duckdb.connect(str(workdir / "after_catchup.duckdb"))
     rows = con.execute("select check_name, subject, status from main.mart_quality_checks").fetchall()
     con.close()
-    assert len(rows) == 8 * 3 + 2  # freshness, range, jump per series + 2 collector checks
+    assert len(rows) == 7 * 3 + 2  # freshness, range, jump per series + 2 collector checks
     assert {s for _, _, s in rows} == {"pass"}
 
 
@@ -240,7 +240,6 @@ def test_stale_data_fails_the_build(demo, tmp_path):
     con.close()
     assert errors == [
         ("hours_since_last_successful_run", "collector"),
-        ("ref_period_age_days", "fx_usdcad"),
         ("ref_period_age_days", "gov_bond_yield_10y"),
         ("ref_period_age_days", "gov_bond_yield_2y"),
         ("ref_period_age_days", "policy_rate_target"),
