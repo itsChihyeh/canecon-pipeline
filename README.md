@@ -31,7 +31,7 @@ flowchart LR
 - **Model**: the DuckDB warehouse is rebuilt from the snapshots each time. dbt finds revisions with window functions, ignoring changes of scale or decimals, and computes revision marts and 26 data quality checks. An error-level check fails the build.
 - **History**: GDP revisions since 2015 come from Statistics Canada's real-time table 36-10-0491 (140 releases); other series accumulate from 2026-11-07.
 - **Dashboard**: only series cleared for publication are exported; the static site is rebuilt after every collection.
-- **Extensions** ([docs/extensions.md](docs/extensions.md)): a monthly brief where every number a language model writes must cite one series, period and measure and is checked against the warehouse (template fallback; no model has been called yet), a scikit-learn walk-forward baseline for the direction of GDP revisions (no reliable edge found), and the pipeline as Dagster assets with a quality asset check.
+- **Extensions** ([docs/extensions.md](docs/extensions.md)): a monthly brief where every number a language model writes must cite one series, period and measure and is checked against the warehouse (DeepSeek; 34 of 34 monthly briefs passed on the first try in a live run, about $0.04; template fallback), a scikit-learn walk-forward baseline for the direction of GDP revisions (no reliable edge found), and the pipeline as Dagster assets with a quality asset check.
 
 More: [architecture](docs/architecture.md) · [extensions](docs/extensions.md) · [design decisions](docs/design-decisions.md) · [reliability](docs/reliability.md) · [data dictionary](docs/data-dictionary.md) · [sources and terms](docs/sources.md) · [bug log](docs/bug-log.md) · [how this was built](docs/how-this-was-built.md)
 
@@ -43,7 +43,7 @@ Requires [uv](https://docs.astral.sh/uv/). The tests need no network.
 
 ```bash
 uv sync
-uv run pytest -q                 # 58 tests (62 with --group orchestration --extra ai)
+uv run pytest -q                 # 60 tests (64 with --group orchestration --extra ai)
 uv run canecon-demo-failure      # offline: injected API failures, retry, partial run, catch-up
 ```
 
@@ -56,7 +56,7 @@ uv run canecon-build --data-dir data/snap/raw --db data/local/warehouse.duckdb
 
 Other commands: `canecon-collect` (one live capture), `canecon-catchup` (fill missed days), `canecon-backfill` (official GDP vintages), `canecon-export` (public tables for the dashboard), `canecon-brief` and `canecon-baseline` (extensions). Dashboard (Node 18+), after `canecon-export`: `cd dashboard && npm ci && npm run sources && npm run dev`.
 
-Checked from a fresh clone on 2026-11-07 (Windows 11, Python 3.12.10, uv 0.11.21, Node 24.17.0): `uv sync --locked`, 40 tests passed (58 passed and 2 skipped after the extensions; 62 with `--group orchestration --extra ai`), `canecon-build` on `data` commit `53f8060` took about 30 s and passed with one expected warning, and the dashboard built with `npm run build:strict`.
+Checked from a fresh clone on 2026-11-07 (Windows 11, Python 3.12.10, uv 0.11.21, Node 24.17.0): `uv sync --locked`, 40 tests passed (60 passed and 2 skipped after the extensions; 64 with `--group orchestration --extra ai`), `canecon-build` on `data` commit `53f8060` took about 30 s and passed with one expected warning, and the dashboard built with `npm run build:strict`.
 
 ## Limits
 

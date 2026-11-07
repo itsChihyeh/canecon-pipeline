@@ -13,7 +13,18 @@ A language model writes a short English paragraph about one month; the program c
 
 Model: DeepSeek `deepseek-flash` through its OpenAI-compatible API (owner's choice, 2026-11-07), thinking on at low effort. Token usage of every attempt is saved with the result, so the cost of each brief is counted.
 
-Status (2026-11-07): the check, the retry and the fallback are tested with a scripted stand-in for the model, and the DeepSeek adapter against a mocked HTTP endpoint (17 tests in `tests/test_brief.py`, all values hand-computed). **No language model has been called yet**, so there is no measured pass rate. `.github/workflows/brief.yml` runs monthly and by hand, reads the key from the `DEEPSEEK_API_KEY` secret and uploads the results as a run artifact; without the secret it writes the template only:
+Tests: the check, the retry and the fallback with a scripted stand-in for the model, and the DeepSeek adapter against a mocked HTTP endpoint (19 tests in `tests/test_brief.py`, all values hand-computed). `.github/workflows/brief.yml` runs monthly (15th) and by hand, reads the key from the `DEEPSEEK_API_KEY` secret and uploads the results as a run artifact; nothing is committed or published. Without the secret it writes the template only.
+
+Live runs (2026-11-07, `deepseek-flash`, months 2024-01 to 2026-10, warehouse built from `data` commit `53f8060`; both runs at weekend off-peak prices):
+
+| Run | Code | Briefs | Passed first try | Passed after retry | Template fallback | Calls | Input / output tokens | Cost at listed prices |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| [42395960746](https://github.com/itsChihyeh/canecon-pipeline/actions/runs/42395960746) | `dd4e949` | 34 | 31 | 3 | 0 | 37 | 13,842 / 63,168 | about $0.04 |
+| [42405517222](https://github.com/itsChihyeh/canecon-pipeline/actions/runs/42405517222) | `739b27d` | 34 | 34 | 0 | 0 | 34 | 12,660 / 60,738 | about $0.04 |
+
+Cost = input tokens x $0.15 + output tokens x $0.60 per million (off-peak half of the $0.30 / $1.20 listed on DeepSeek's pricing page, checked 2026-11-07); output includes the model's reasoning tokens. The three retries in the first run were a bug in the check, not model errors: a year ending a sentence ("in September 2024.") was rejected as an uncited number. It was fixed in `739b27d` with a test; re-checked with the fixed code, all 37 drafts of the first run pass.
+
+What this does and does not show: in 68 briefs the model cited every number correctly, so the check has not yet caught a real model error; its ability to catch one is shown only by the deliberately wrong drafts in the tests.
 
 ```bash
 uv run canecon-brief --month 2026-08                       # template only, no API call
@@ -71,5 +82,4 @@ Run by hand on `data` commit `53f8060` (2026-11-07, Dagster 1.13.29, in-process 
 
 ## Not done
 
-- Terraform and cloud storage: needs a cloud account with billing; not started.
-- A real language model run and its measured pass rate: waiting for the owner's decision on API cost.
+- Terraform and cloud storage: dropped by the owner's decision (2026-11-07); the data is small and the `data` branch is enough.
