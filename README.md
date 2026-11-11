@@ -30,7 +30,7 @@ flowchart LR
     D --> E[Evidence static site<br/>GitHub Pages]
 ```
 
-- **Collect** (GitHub Actions, 15:00 UTC daily): 3 requests cover 7 series. Retries with backoff; a run is `success` only if every request succeeded.
+- **Collect** (GitHub Actions, scheduled 13:47 UTC daily): 3 requests cover 7 series. Retries with backoff; a daily run also catches up earlier missed days; a run is `success` only if every request succeeded.
 - **Raw layer**: each response stored once under its SHA-256 on the `data` branch, with a manifest of URL, parameters, capture time and status. Reruns add nothing new when the bytes are the same.
 - **Model**: the DuckDB warehouse is rebuilt from the snapshots each time. dbt finds revisions with window functions, ignoring changes of scale or decimals, and computes revision marts and 23 data quality checks. An error-level check fails the build. A new vintage starts only when a value differs from the last vintage kept, so a release with fewer decimals cannot hide a later revision.
 - **History**: GDP revisions since 2015 come from Statistics Canada's real-time table 36-10-0491 (140 releases); other series accumulate from 2026-11-07.
