@@ -2,8 +2,12 @@ name: Daily collect
 
 on:
   schedule:
-    # 15:00 UTC = 10:00 EST / 11:00 EDT, after StatCan's 08:30 ET releases.
-    - cron: "0 15 * * *"
+    # 13:47 UTC = 08:47 EST / 09:47 EDT, after StatCan's 08:30 ET releases.
+    # Off the hour and early on purpose: GitHub starts scheduled runs late under load
+    # (the 15:00 UTC runs of 2026-11-07..10 started 4 to 9 hours late, one of them 19
+    # minutes before the UTC day ended). A run that slips past midnight UTC leaves a
+    # missing day, which the next daily run now catches up by itself (step below).
+    - cron: "47 13 * * *"
   workflow_dispatch:
     inputs:
       mode:
@@ -62,6 +66,15 @@ jobs:
           esac
         continue-on-error: true
 
+      # Daily runs also fill any earlier day that has no successful run (for example a
+      # scheduled run GitHub started after midnight UTC, or a day the APIs were down).
+      # With no missed days this prints "nothing_to_catch_up" and makes no requests.
+      - name: Catch up missed days (daily runs only)
+        id: catchup
+        if: (inputs.mode || 'daily') == 'daily' && steps.collect.outcome == 'success'
+        run: uv run canecon-catchup --data-dir data-branch/raw
+        continue-on-error: true
+
       - name: Commit snapshots to data branch
         working-directory: data-branch
         env:
@@ -93,7 +106,7 @@ jobs:
         run: gh workflow enable collect.yml --repo "$GITHUB_REPOSITORY" || echo "::warning::could not re-enable the workflow"
 
       - name: Fail if any request or check failed
-        if: steps.collect.outcome != 'success' || steps.build.outcome != 'success'
+        if: steps.collect.outcome != 'success' || steps.catchup.outcome == 'failure' || steps.build.outcome != 'success'
         run: |
-          echo "::error::collect=${{ steps.collect.outcome }} build=${{ steps.build.outcome }}; see data-branch/raw/runs.jsonl and the step logs"
+          echo "::error::collect=${{ steps.collect.outcome }} catchup=${{ steps.catchup.outcome }} build=${{ steps.build.outcome }}; see data-branch/raw/runs.jsonl and the step logs"
           exit 1

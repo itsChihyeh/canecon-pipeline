@@ -20,7 +20,9 @@ uv run canecon-catchup --data-dir data/raw                     # every missed da
 uv run canecon-catchup --data-dir data/raw --date 2026-11-05   # a specific day; repeatable
 ```
 
-On GitHub: run the `Daily collect` workflow by hand with mode `catchup` (and optional `dates`).
+On GitHub: every daily run of the `Daily collect` workflow that collects successfully then runs `canecon-catchup` for all missed days (added 2026-11-11; not yet exercised by a real missed day). To do it by hand, run the workflow with mode `catchup` (and optional `dates`).
+
+Why this was added: the schedule was `0 15 * * *`, and GitHub started the four scheduled runs of 2026-11-07 to 2026-11-10 between 4 and 9 hours late (start times are in `raw/runs.jsonl` on the `data` branch); the 2026-11-09 run started at 23:41 UTC, 19 minutes before it would have been recorded under the next UTC day and left 2026-11-09 missing. The schedule is now `47 13 * * *` (off the hour, earlier, still after StatCan's 08:30 ET release). Whether that shortens the delay is not known yet.
 
 What a catch-up can and cannot do. The APIs serve current data, so nobody can re-capture what an endpoint returned on a past day. A catch-up run therefore:
 
