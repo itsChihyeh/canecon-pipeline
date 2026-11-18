@@ -14,3 +14,5 @@
 {"finished_at": "2026-11-15T19:28:26Z", "for_dates": ["2026-11-15"], "kind": "daily", "n_ok": 3, "n_requests": 3, "run_id": "2026-11-15T19:28:24Z_cdcedec7", "started_at": "2026-11-15T19:28:24Z", "status": "success"}
 {"finished_at": "2026-11-16T23:02:57Z", "for_dates": ["2026-11-16"], "kind": "daily", "n_ok": 3, "n_requests": 3, "run_id": "2026-11-16T23:02:55Z_6b8e2af5", "started_at": "2026-11-16T23:02:55Z", "status": "success"}
 {"finished_at": "2026-11-17T21:55:16Z", "for_dates": ["2026-11-17"], "kind": "daily", "n_ok": 1, "n_requests": 3, "run_id": "2026-11-17T21:55:16Z_7ba732ac", "started_at": "2026-11-17T21:55:16Z", "status": "partial"}
+{"finished_at": "2026-11-18T21:37:18Z", "for_dates": ["2026-11-18"], "kind": "daily", "n_ok": 3, "n_requests": 3, "run_id": "2026-11-18T21:37:15Z_563462ec", "started_at": "2026-11-18T21:37:15Z", "status": "success"}
+{"finished_at": "2026-11-18T21:37:20Z", "for_dates": ["2026-11-17"], "kind": "catchup", "n_ok": 5, "n_requests": 5, "run_id": "2026-11-18T21:37:18Z_f0a15aa0", "started_at": "2026-11-18T21:37:18Z", "status": "success"}
