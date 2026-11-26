@@ -24,3 +24,4 @@
 {"finished_at": "2026-11-24T01:14:48Z", "for_dates": ["2026-11-23"], "kind": "catchup", "n_ok": 4, "n_requests": 4, "run_id": "2026-11-24T01:14:47Z_1560b8e9", "started_at": "2026-11-24T01:14:47Z", "status": "success"}
 {"finished_at": "2026-11-24T23:17:03Z", "for_dates": ["2026-11-24"], "kind": "daily", "n_ok": 3, "n_requests": 3, "run_id": "2026-11-24T23:17:01Z_15f942cd", "started_at": "2026-11-24T23:17:01Z", "status": "success"}
 {"finished_at": "2026-11-25T22:49:08Z", "for_dates": ["2026-11-25"], "kind": "daily", "n_ok": 3, "n_requests": 3, "run_id": "2026-11-25T22:49:06Z_479b1934", "started_at": "2026-11-25T22:49:06Z", "status": "success"}
+{"finished_at": "2026-11-26T22:38:22Z", "for_dates": ["2026-11-26"], "kind": "daily", "n_ok": 3, "n_requests": 3, "run_id": "2026-11-26T22:38:19Z_b65e9568", "started_at": "2026-11-26T22:38:19Z", "status": "success"}
